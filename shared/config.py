@@ -112,12 +112,12 @@ class Settings(BaseSettings):
     # 版本更新配置
     # 支持静态文件服务（推荐）或完整API服务器
     # 静态文件示例：将 version.json 上传到任意文件托管服务
-    # - GitHub: https://raw.githubusercontent.com/your-username/your-repo/main/version.json
+    # - GitHub: https://raw.githubusercontent.com/rockbing2125/Safety-Manager/main/version.json
     # - 阿里云OSS: https://your-bucket.oss-cn-beijing.aliyuncs.com/version.json
     # - 腾讯云COS: https://your-bucket.cos.ap-beijing.myqcloud.com/version.json
     # - Gitee: https://gitee.com/your-username/your-repo/raw/master/version.json
     UPDATE_CHECK_URL: str = Field(
-        default="https://your-static-file-url.com/version.json",
+        default="https://raw.githubusercontent.com/rockbing2125/Safety-Manager/main/version.json",
         env="UPDATE_CHECK_URL"
     )
     AUTO_UPDATE: bool = Field(default=True, env="AUTO_UPDATE")
