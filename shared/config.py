@@ -122,6 +122,12 @@ class Settings(BaseSettings):
     )
     AUTO_UPDATE: bool = Field(default=True, env="AUTO_UPDATE")
 
+    # GitHub 自动推送配置（管理员功能）
+    # GitHub Personal Access Token，用于自动推送版本更新
+    # 获取方式：https://github.com/settings/tokens
+    # 需要权限：repo（完整仓库访问权限）
+    GITHUB_TOKEN: str = Field(default="", env="GITHUB_TOKEN")
+
     class Config:
         # .env文件是可选的，不存在时使用默认配置
         env_file = ".env"

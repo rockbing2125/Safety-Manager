@@ -109,6 +109,7 @@ class MainWindow(QMainWindow):
         # 如果是管理员，添加推送更新按钮
         if self.current_user.role.value == "admin":
             toolbar.addAction(QAction("推送更新", self, triggered=self.push_update))
+            toolbar.addAction(QAction("GitHub 推送", self, triggered=self.github_push))
         
         widget = QWidget()
         layout = QVBoxLayout()
@@ -322,6 +323,18 @@ class MainWindow(QMainWindow):
         dialog = PushUpdateDialog(self, self.update_service)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             QMessageBox.information(self, "成功", "更新通知已推送")
+            self.check_for_updates()
+
+    def github_push(self):
+        """GitHub 自动推送版本更新"""
+        if self.current_user.role.value != "admin":
+            QMessageBox.warning(self, "权限不足", "只有管理员可以推送更新")
+            return
+
+        from .github_push_dialog import GitHubPushDialog
+        dialog = GitHubPushDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # 推送成功后，刷新版本检查
             self.check_for_updates()
 
     def closeEvent(self, event):
