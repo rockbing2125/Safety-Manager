@@ -9,13 +9,18 @@ dist/
 venv/
 ENV/
 
-# Project
-data/
+# Project - Data directories
+data/databases/
+data/logs/
+data/search_index/
+data/documents/
+data/codes/
+
+# Project - Files
 *.db
 *.sqlite
 .env
 *.log
-logs/
 
 # IDE
 .vscode/
