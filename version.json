@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "release_date": "2025-12-02",
+  "download_url": "https://your-download-link.com/SafetyManager_v1.0.0.zip",
+  "changelog": [
+    "✨ 初始发布版本",
+    "✅ 支持离线单机运行",
+    "✅ 自动数据库初始化",
+    "✅ 内置版本更新推送",
+    "✅ 开箱即用，无需配置"
+  ],
+  "required": false,
+  "min_version": "1.0.0"
+}
