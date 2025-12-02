@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c 测试推送功能.bat)",
+      "Bash(dir /b)",
+      "Bash(cmd /c dir /b)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
