@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # 应用信息
     APP_NAME: str = "并网法规管理系统"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.1.2"
     APP_DESCRIPTION: str = "Grid Regulation Management System"
 
     # 数据库配置 - SQLite (本地)
