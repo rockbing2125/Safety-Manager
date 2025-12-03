@@ -7,9 +7,9 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
     QWidget, QLabel, QTextEdit, QPushButton, QTableWidget,
     QTableWidgetItem, QFileDialog, QMessageBox, QHeaderView,
-    QFormLayout, QListWidget, QFileDialog  # 添加QFileDialog
+    QFormLayout, QListWidget, QScrollArea
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QFont
 import subprocess
 import platform
@@ -439,6 +439,9 @@ class RegulationDetailDialog(QDialog):
         # 允许单击编辑
         self.param_table.setEditTriggers(QTableWidget.EditTrigger.SelectedClicked | QTableWidget.EditTrigger.AnyKeyPressed)
 
+        # 设置图标大小（让表格中的图片显示更大）
+        self.param_table.setIconSize(QSize(120, 120))
+
         # 连接双击事件（用于放大查看图片）
         self.param_table.itemDoubleClicked.connect(self.on_param_cell_double_clicked)
 
@@ -458,55 +461,67 @@ class RegulationDetailDialog(QDialog):
 
     def on_param_cell_double_clicked(self, item):
         """双击单元格事件 - 放大查看图片"""
-        if not item:
-            return
+        try:
+            if not item:
+                return
 
-        # 检查是否是图片单元格
-        if item.data(Qt.ItemDataRole.UserRole) == "IMAGE":
+            # 检查是否是图片单元格
+            if item.data(Qt.ItemDataRole.UserRole) != "IMAGE":
+                return
+
             row = item.row()
             col = item.column()
 
             # 获取原始图片
-            if hasattr(self, 'original_images') and (row, col) in self.original_images:
-                original_pixmap = self.original_images[(row, col)]
+            if not hasattr(self, 'original_images'):
+                QMessageBox.warning(self, "提示", "原始图片数据不存在")
+                return
 
-                # 创建图片查看对话框
-                from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QScrollArea
-                from PyQt6.QtCore import Qt
+            if (row, col) not in self.original_images:
+                QMessageBox.warning(self, "提示", "未找到该位置的图片数据")
+                return
 
-                dialog = QDialog(self)
-                dialog.setWindowTitle("查看图片")
-                dialog.setMinimumSize(600, 600)
+            original_pixmap = self.original_images[(row, col)]
 
-                layout = QVBoxLayout()
+            # 创建图片查看对话框
+            dialog = QDialog(self)
+            dialog.setWindowTitle("查看图片")
+            dialog.setMinimumSize(600, 600)
 
-                # 创建滚动区域
-                scroll_area = QScrollArea()
-                scroll_area.setWidgetResizable(True)
+            layout = QVBoxLayout()
 
-                # 图片标签
-                image_label = QLabel()
-                image_label.setPixmap(original_pixmap)
-                image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            # 创建滚动区域
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
 
-                scroll_area.setWidget(image_label)
-                layout.addWidget(scroll_area)
+            # 图片标签
+            image_label = QLabel()
+            image_label.setPixmap(original_pixmap)
+            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-                # 显示图片信息
-                info_label = QLabel(
-                    f"原始尺寸: {original_pixmap.width()} x {original_pixmap.height()} 像素\n"
-                    f"位置: 第 {row+1} 行, 第 {col+1} 列"
-                )
-                info_label.setStyleSheet("padding: 10px; background-color: #f0f0f0;")
-                layout.addWidget(info_label)
+            scroll_area.setWidget(image_label)
+            layout.addWidget(scroll_area)
 
-                # 关闭按钮
-                close_btn = QPushButton("关闭")
-                close_btn.clicked.connect(dialog.accept)
-                layout.addWidget(close_btn)
+            # 显示图片信息
+            info_label = QLabel(
+                f"原始尺寸: {original_pixmap.width()} x {original_pixmap.height()} 像素\n"
+                f"位置: 第 {row+1} 行, 第 {col+1} 列"
+            )
+            info_label.setStyleSheet("padding: 10px; background-color: #f0f0f0;")
+            layout.addWidget(info_label)
 
-                dialog.setLayout(layout)
-                dialog.exec()
+            # 关闭按钮
+            close_btn = QPushButton("关闭")
+            close_btn.clicked.connect(dialog.accept)
+            layout.addWidget(close_btn)
+
+            dialog.setLayout(layout)
+            dialog.exec()
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"查看图片失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def add_parameter_row(self):
         """新增参数行"""
