@@ -19,9 +19,26 @@ class GitService:
     """Git 自动推送服务"""
 
     def __init__(self):
-        self.repo_path = BASE_DIR
+        self.repo_path = self._find_git_repo_root()
         self.version_file = self.repo_path / "version.json"
         self.config_file = self.repo_path / "shared" / "config.py"
+
+    def _find_git_repo_root(self) -> Path:
+        """查找 Git 仓库根目录"""
+        # 从 BASE_DIR 开始向上查找 .git 目录
+        current = BASE_DIR
+        max_levels = 5  # 最多向上查找5级
+
+        for _ in range(max_levels):
+            if (current / ".git").exists():
+                return current
+            parent = current.parent
+            if parent == current:  # 到达根目录
+                break
+            current = parent
+
+        # 如果没找到，返回 BASE_DIR（开发环境）
+        return BASE_DIR
 
     def check_git_available(self) -> Tuple[bool, str]:
         """检查 Git 是否可用"""
