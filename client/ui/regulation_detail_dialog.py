@@ -484,6 +484,8 @@ class RegulationDetailDialog(QDialog):
             from io import BytesIO
             from PyQt6.QtGui import QPixmap, QIcon
             from PyQt6.QtCore import QSize
+            import zipfile
+            import re
 
             wb = openpyxl.load_workbook(file_path)
             ws = wb.active
@@ -494,47 +496,111 @@ class RegulationDetailDialog(QDialog):
 
             # 提取Excel中的图片
             image_map = {}  # 存储图片位置映射 {(row, col): QPixmap}
+            dispimg_id_map = {}  # 存储DISPIMG ID到图片的映射 {id: QPixmap}
+
+            # 方法1: 从ZIP包中提取所有媒体文件（适用于DISPIMG）
+            try:
+                with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                    # 查找所有图片文件
+                    for file_name in zip_ref.namelist():
+                        if file_name.startswith('xl/media/'):
+                            # 提取文件名中的ID或索引
+                            image_data = zip_ref.read(file_name)
+                            pixmap = QPixmap()
+                            if pixmap.loadFromData(image_data):
+                                # 使用文件名作为key
+                                base_name = file_name.split('/')[-1]
+                                dispimg_id_map[base_name] = pixmap
+                                print(f"从ZIP提取图片: {base_name}, 尺寸: {pixmap.width()}x{pixmap.height()}")
+            except Exception as e:
+                print(f"从ZIP提取图片失败: {e}")
+
+            # 方法2: 使用openpyxl的_images（适用于直接插入的图片）
             if hasattr(ws, '_images') and ws._images:
-                for img in ws._images:
+                for idx, img in enumerate(ws._images):
                     try:
-                        # 获取图片数据
                         image_data = img._data()
                         pixmap = QPixmap()
-                        pixmap.loadFromData(image_data)
-
-                        # 获取图片锚点位置（图片所在的单元格）
-                        if hasattr(img, 'anchor') and hasattr(img.anchor, '_from'):
-                            anchor = img.anchor._from
-                            # Excel的行列索引从0开始，但我们从第2行开始读取
-                            row = anchor.row - 1  # 转换为我们的表格行号（第2行开始=0）
-                            col = anchor.col
-                            if row >= 0 and col < 7:  # 只处理前7列
-                                image_map[(row, col)] = pixmap
-                    except:
+                        if pixmap.loadFromData(image_data):
+                            if hasattr(img, 'anchor') and hasattr(img.anchor, '_from'):
+                                from_anchor = img.anchor._from
+                                row = from_anchor.row - 1
+                                col = from_anchor.col
+                                if row >= 0 and col < 7:
+                                    image_map[(row, col)] = pixmap
+                                    print(f"从_images提取图片: 位置({row}, {col})")
+                    except Exception as e:
+                        print(f"处理_images图片失败: {e}")
                         continue
 
             # 读取所有数据（从第2行开始，跳过表头）
+            # 先用非values_only模式读取，以便获取公式
             all_rows = []
-            for excel_row in ws.iter_rows(min_row=2, values_only=True):
-                if excel_row and any(cell is not None for cell in excel_row[:7]):
-                    row_data = []
-                    for col_idx in range(7):
-                        value = excel_row[col_idx] if col_idx < len(excel_row) else None
-                        # 处理图片公式 - 标记为特殊值
-                        if value and isinstance(value, str) and '_xlfn.DISPIMG' in value:
-                            value = "__IMAGE__"  # 使用特殊标记
-                        row_data.append(str(value) if value is not None else "")
-                    all_rows.append(row_data)
+            row_image_info = {}  # {(row, col): image_id}
+
+            for row_idx, excel_row in enumerate(ws.iter_rows(min_row=2, max_col=7)):
+                if not excel_row:
+                    continue
+
+                # 检查这一行是否有任何非空值
+                has_data = any(cell.value is not None for cell in excel_row)
+                if not has_data:
+                    continue
+
+                row_data = []
+                for col_idx, cell in enumerate(excel_row):
+                    value = cell.value
+
+                    # 打印单元格信息用于调试
+                    if value is not None and col_idx < 7:
+                        print(f"Cell({row_idx+2},{col_idx+1}): value={value}, type={type(value)}, data_type={cell.data_type if hasattr(cell, 'data_type') else 'N/A'}")
+
+                    # 检查是否是公式（data_type=='f'表示formula）
+                    if hasattr(cell, 'data_type') and cell.data_type == 'f':
+                        # 对于公式单元格，value是计算结果，需要获取公式本身
+                        formula = cell.value  # 在openpyxl中，公式单元格的value就是公式字符串
+                        if isinstance(formula, str) and '_xlfn.DISPIMG' in formula:
+                            # 提取ID：=_xlfn.DISPIMG("ID_xxx",1)
+                            match = re.search(r'ID_([A-F0-9]+)', formula)
+                            if match:
+                                image_id = match.group(1)
+                                row_image_info[(row_idx, col_idx)] = image_id
+                                print(f"✓ 检测到DISPIMG at ({row_idx},{col_idx}): ID_{image_id}")
+                            value = "__IMAGE__"
+                        elif isinstance(value, str) and '_xlfn.DISPIMG' in str(value):
+                            # 如果value本身包含DISPIMG
+                            match = re.search(r'ID_([A-F0-9]+)', str(value))
+                            if match:
+                                image_id = match.group(1)
+                                row_image_info[(row_idx, col_idx)] = image_id
+                                print(f"✓ 检测到DISPIMG(value) at ({row_idx},{col_idx}): ID_{image_id}")
+                            value = "__IMAGE__"
+
+                    row_data.append(str(value) if value is not None else "")
+                all_rows.append(row_data)
 
             # 填充表格
             self.param_table.setRowCount(len(all_rows))
-            self.param_table.setRowHeight(0, 60)  # 设置默认行高以容纳图片
+
+            # 如果有从ZIP提取的图片，按顺序分配给DISPIMG位置
+            zip_images_list = list(dispimg_id_map.values())
+            dispimg_positions = sorted(row_image_info.keys())  # 按位置排序
+
+            print(f"总共有{len(zip_images_list)}个ZIP图片, {len(dispimg_positions)}个DISPIMG位置")
+
+            # 将ZIP图片按顺序映射到DISPIMG位置
+            for idx, pos in enumerate(dispimg_positions):
+                if idx < len(zip_images_list):
+                    image_map[pos] = zip_images_list[idx]
+                    print(f"映射图片{idx}到位置{pos}")
 
             for row_idx, row_data in enumerate(all_rows):
                 # 设置行高（如果该行有图片，设置更大的行高）
                 has_image = any((row_idx, col) in image_map for col in range(7))
                 if has_image:
                     self.param_table.setRowHeight(row_idx, 80)
+                else:
+                    self.param_table.setRowHeight(row_idx, 30)
 
                 for col_idx, value in enumerate(row_data):
                     # 检查该位置是否有图片
@@ -546,9 +612,11 @@ class RegulationDetailDialog(QDialog):
                         icon = QIcon(scaled_pixmap)
                         item = QTableWidgetItem(icon, "")
                         item.setData(Qt.ItemDataRole.UserRole, "IMAGE")  # 标记为图片
+                        print(f"在({row_idx},{col_idx})显示图片")
                     elif value == "__IMAGE__":
                         # 有图片标记但没找到实际图片
-                        item = QTableWidgetItem("[图片]")
+                        item = QTableWidgetItem("[图片未提取]")
+                        print(f"在({row_idx},{col_idx})无法提取图片")
                     else:
                         item = QTableWidgetItem(value)
 
@@ -558,12 +626,20 @@ class RegulationDetailDialog(QDialog):
             self.apply_category_merge()
 
             image_count = len(image_map)
-            QMessageBox.information(
-                self, "导入成功",
-                f"成功导入 {len(all_rows)} 行参数！\n\n"
-                f"类别列已自动合并显示。\n"
-                f"提取了 {image_count} 个图片。"
-            )
+            zip_image_count = len(dispimg_id_map)
+            dispimg_formula_count = len(dispimg_positions)
+
+            msg = f"✅ 成功导入 {len(all_rows)} 行参数！\n\n"
+            msg += f"📊 导入统计:\n"
+            msg += f"  • 类别列已自动合并显示\n"
+            msg += f"  • 从ZIP提取了 {zip_image_count} 个图片文件\n"
+            msg += f"  • 检测到 {dispimg_formula_count} 个DISPIMG公式\n"
+            msg += f"  • 成功显示 {image_count} 个图片\n"
+
+            if dispimg_formula_count > image_count:
+                msg += f"\n⚠️ 有 {dispimg_formula_count - image_count} 个图片无法显示"
+
+            QMessageBox.information(self, "导入成功", msg)
 
         except ImportError:
             QMessageBox.critical(self, "错误", "需要: pip install openpyxl")
