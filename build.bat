@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
 echo ============================================
 echo 并网法规管理系统 - 打包脚本（分发版）
@@ -93,6 +94,47 @@ echo ============================================
 echo 打包完成！
 echo ============================================
 echo.
+
+REM 询问是否要同步开发环境数据库
+echo [可选] 同步开发环境数据库到打包目录
+echo ============================================
+if exist "data\databases\regulations.db" (
+    echo.
+    echo 检测到开发环境数据库: data\databases\regulations.db
+    for %%F in ("data\databases\regulations.db") do (
+        echo   大小: %%~zF 字节
+        echo   时间: %%~tF
+    )
+    echo.
+    set /p sync_db="是否要将开发环境的数据库复制到打包目录？(Y/N，默认N): "
+    if /i "!sync_db!"=="Y" (
+        echo.
+        echo [同步] 正在复制数据库...
+
+        REM 备份打包目录的旧数据库
+        if exist "dist\SafetyManager\data\databases\regulations.db" (
+            copy /Y "dist\SafetyManager\data\databases\regulations.db" "dist\SafetyManager\data\databases\regulations.db.bak" >nul 2>&1
+            echo ✓ 已备份原数据库为 regulations.db.bak
+        )
+
+        REM 复制开发数据库
+        copy /Y "data\databases\regulations.db" "dist\SafetyManager\data\databases\regulations.db" >nul
+        if !errorlevel!==0 (
+            echo ✓ 数据库同步成功！
+            echo   现在打包程序将使用开发环境的数据
+        ) else (
+            echo ✗ 数据库同步失败！
+        )
+        echo.
+    ) else (
+        echo [跳过] 将使用打包目录自带的数据库
+        echo.
+    )
+) else (
+    echo ⚠ 未找到开发环境数据库
+    echo.
+)
+
 echo ============================================
 echo 分发说明
 echo ============================================
