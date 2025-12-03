@@ -511,9 +511,9 @@ class RegulationDetailDialog(QDialog):
                                 # 使用文件名作为key
                                 base_name = file_name.split('/')[-1]
                                 dispimg_id_map[base_name] = pixmap
-                                print(f"从ZIP提取图片: {base_name}, 尺寸: {pixmap.width()}x{pixmap.height()}")
+                                print(f"[ZIP] Extracted image: {base_name}, size: {pixmap.width()}x{pixmap.height()}")
             except Exception as e:
-                print(f"从ZIP提取图片失败: {e}")
+                print(f"[ZIP] Failed to extract images: {e}")
 
             # 方法2: 使用openpyxl的_images（适用于直接插入的图片）
             if hasattr(ws, '_images') and ws._images:
@@ -528,9 +528,9 @@ class RegulationDetailDialog(QDialog):
                                 col = from_anchor.col
                                 if row >= 0 and col < 7:
                                     image_map[(row, col)] = pixmap
-                                    print(f"从_images提取图片: 位置({row}, {col})")
+                                    print(f"[_images] Extracted image at position ({row}, {col})")
                     except Exception as e:
-                        print(f"处理_images图片失败: {e}")
+                        print(f"[_images] Failed to process image: {e}")
                         continue
 
             # 读取所有数据（从第2行开始，跳过表头）
@@ -565,7 +565,7 @@ class RegulationDetailDialog(QDialog):
                             if match:
                                 image_id = match.group(1)
                                 row_image_info[(row_idx, col_idx)] = image_id
-                                print(f"✓ 检测到DISPIMG at ({row_idx},{col_idx}): ID_{image_id}")
+                                print(f"[OK] Detected DISPIMG at ({row_idx},{col_idx}): ID_{image_id}")
                             value = "__IMAGE__"
                         elif isinstance(value, str) and '_xlfn.DISPIMG' in str(value):
                             # 如果value本身包含DISPIMG
@@ -573,7 +573,7 @@ class RegulationDetailDialog(QDialog):
                             if match:
                                 image_id = match.group(1)
                                 row_image_info[(row_idx, col_idx)] = image_id
-                                print(f"✓ 检测到DISPIMG(value) at ({row_idx},{col_idx}): ID_{image_id}")
+                                print(f"[OK] Detected DISPIMG(value) at ({row_idx},{col_idx}): ID_{image_id}")
                             value = "__IMAGE__"
 
                     row_data.append(str(value) if value is not None else "")
@@ -586,13 +586,13 @@ class RegulationDetailDialog(QDialog):
             zip_images_list = list(dispimg_id_map.values())
             dispimg_positions = sorted(row_image_info.keys())  # 按位置排序
 
-            print(f"总共有{len(zip_images_list)}个ZIP图片, {len(dispimg_positions)}个DISPIMG位置")
+            print(f"[Summary] {len(zip_images_list)} ZIP images, {len(dispimg_positions)} DISPIMG positions")
 
             # 将ZIP图片按顺序映射到DISPIMG位置
             for idx, pos in enumerate(dispimg_positions):
                 if idx < len(zip_images_list):
                     image_map[pos] = zip_images_list[idx]
-                    print(f"映射图片{idx}到位置{pos}")
+                    print(f"[Mapping] Image {idx} to position {pos}")
 
             for row_idx, row_data in enumerate(all_rows):
                 # 设置行高（如果该行有图片，设置更大的行高）
@@ -612,11 +612,11 @@ class RegulationDetailDialog(QDialog):
                         icon = QIcon(scaled_pixmap)
                         item = QTableWidgetItem(icon, "")
                         item.setData(Qt.ItemDataRole.UserRole, "IMAGE")  # 标记为图片
-                        print(f"在({row_idx},{col_idx})显示图片")
+                        print(f"[Display] Showing image at ({row_idx},{col_idx})")
                     elif value == "__IMAGE__":
                         # 有图片标记但没找到实际图片
                         item = QTableWidgetItem("[图片未提取]")
-                        print(f"在({row_idx},{col_idx})无法提取图片")
+                        print(f"[Warning] Failed to extract image at ({row_idx},{col_idx})")
                     else:
                         item = QTableWidgetItem(value)
 
@@ -629,15 +629,15 @@ class RegulationDetailDialog(QDialog):
             zip_image_count = len(dispimg_id_map)
             dispimg_formula_count = len(dispimg_positions)
 
-            msg = f"✅ 成功导入 {len(all_rows)} 行参数！\n\n"
-            msg += f"📊 导入统计:\n"
-            msg += f"  • 类别列已自动合并显示\n"
-            msg += f"  • 从ZIP提取了 {zip_image_count} 个图片文件\n"
-            msg += f"  • 检测到 {dispimg_formula_count} 个DISPIMG公式\n"
-            msg += f"  • 成功显示 {image_count} 个图片\n"
+            msg = f"[OK] 成功导入 {len(all_rows)} 行参数！\n\n"
+            msg += f"导入统计:\n"
+            msg += f"  - 类别列已自动合并显示\n"
+            msg += f"  - 从ZIP提取了 {zip_image_count} 个图片文件\n"
+            msg += f"  - 检测到 {dispimg_formula_count} 个DISPIMG公式\n"
+            msg += f"  - 成功显示 {image_count} 个图片\n"
 
             if dispimg_formula_count > image_count:
-                msg += f"\n⚠️ 有 {dispimg_formula_count - image_count} 个图片无法显示"
+                msg += f"\n[!] 有 {dispimg_formula_count - image_count} 个图片无法显示"
 
             QMessageBox.information(self, "导入成功", msg)
 
