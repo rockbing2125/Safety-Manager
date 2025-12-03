@@ -496,6 +496,9 @@ class RegulationDetailDialog(QDialog):
                     row_data = []
                     for col_idx in range(7):
                         value = excel_row[col_idx] if col_idx < len(excel_row) else None
+                        # 处理图片公式
+                        if value and isinstance(value, str) and '_xlfn.DISPIMG' in value:
+                            value = "[图片]"
                         row_data.append(str(value) if value is not None else "")
                     all_rows.append(row_data)
 

@@ -255,6 +255,7 @@ class RegulationDialog(QDialog):
             if self.is_edit_mode:
                 success, message, regulation = self.regulation_service.update_regulation(
                     self.regulation.id,
+                    code=code,
                     name=name,
                     country=country,
                     version=version or None,
