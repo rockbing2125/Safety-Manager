@@ -330,3 +330,9 @@ class UpdateNotificationsDialog(QDialog):
             self.version_group.setVisible(False)
             self.latest_update_info = None
             QMessageBox.information(self, "已忽略", "已忽略此版本更新")
+
+    def closeEvent(self, event):
+        """对话框关闭时自动标记所有通知为已读"""
+        # 自动将所有通知标记为已读
+        self.update_service.mark_all_as_read()
+        event.accept()

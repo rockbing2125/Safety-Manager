@@ -68,14 +68,14 @@ class GitHubPushDialog(QDialog):
 
     def init_ui(self):
         """初始化UI"""
-        self.setWindowTitle("GitHub 自动推送版本更新")
+        self.setWindowTitle("新版本推送")
         self.setMinimumSize(700, 650)
         self.setModal(True)
 
         layout = QVBoxLayout()
 
         # 标题和说明
-        title = QLabel("自动推送版本更新到 GitHub")
+        title = QLabel("推送新版本到 GitHub")
         title_font = QFont()
         title_font.setPointSize(12)
         title_font.setBold(True)

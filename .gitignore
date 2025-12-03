@@ -22,6 +22,10 @@ data/codes/
 .env
 *.log
 
+# 保留法规参数数据（Excel文件）
+!RDB/
+!RDB/*.xlsx
+
 # IDE
 .vscode/
 .idea/
