@@ -30,6 +30,7 @@ class RegulationDetailDialog(QDialog):
         self.user_id = user_id
         self.regulation_service = RegulationService()
         self.db = SessionLocal()
+        self.original_images = {}  # 存储原始图片数据，用于双击放大查看
 
         self.regulation = self.regulation_service.get_regulation(regulation_id)
         if not self.regulation:
@@ -438,6 +439,9 @@ class RegulationDetailDialog(QDialog):
         # 允许单击编辑
         self.param_table.setEditTriggers(QTableWidget.EditTrigger.SelectedClicked | QTableWidget.EditTrigger.AnyKeyPressed)
 
+        # 连接双击事件（用于放大查看图片）
+        self.param_table.itemDoubleClicked.connect(self.on_param_cell_double_clicked)
+
         # 设置列宽
         header = self.param_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -451,6 +455,58 @@ class RegulationDetailDialog(QDialog):
         self.load_saved_parameters()  # 添加这一行
 		
         return widget
+
+    def on_param_cell_double_clicked(self, item):
+        """双击单元格事件 - 放大查看图片"""
+        if not item:
+            return
+
+        # 检查是否是图片单元格
+        if item.data(Qt.ItemDataRole.UserRole) == "IMAGE":
+            row = item.row()
+            col = item.column()
+
+            # 获取原始图片
+            if hasattr(self, 'original_images') and (row, col) in self.original_images:
+                original_pixmap = self.original_images[(row, col)]
+
+                # 创建图片查看对话框
+                from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QScrollArea
+                from PyQt6.QtCore import Qt
+
+                dialog = QDialog(self)
+                dialog.setWindowTitle("查看图片")
+                dialog.setMinimumSize(600, 600)
+
+                layout = QVBoxLayout()
+
+                # 创建滚动区域
+                scroll_area = QScrollArea()
+                scroll_area.setWidgetResizable(True)
+
+                # 图片标签
+                image_label = QLabel()
+                image_label.setPixmap(original_pixmap)
+                image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                scroll_area.setWidget(image_label)
+                layout.addWidget(scroll_area)
+
+                # 显示图片信息
+                info_label = QLabel(
+                    f"原始尺寸: {original_pixmap.width()} x {original_pixmap.height()} 像素\n"
+                    f"位置: 第 {row+1} 行, 第 {col+1} 列"
+                )
+                info_label.setStyleSheet("padding: 10px; background-color: #f0f0f0;")
+                layout.addWidget(info_label)
+
+                # 关闭按钮
+                close_btn = QPushButton("关闭")
+                close_btn.clicked.connect(dialog.accept)
+                layout.addWidget(close_btn)
+
+                dialog.setLayout(layout)
+                dialog.exec()
 
     def add_parameter_row(self):
         """新增参数行"""
@@ -594,11 +650,14 @@ class RegulationDetailDialog(QDialog):
                     image_map[pos] = zip_images_list[idx]
                     print(f"[Mapping] Image {idx} to position {pos}")
 
+            # 保存原始图片数据，用于双击放大查看
+            self.original_images = image_map.copy()
+
             for row_idx, row_data in enumerate(all_rows):
                 # 设置行高（如果该行有图片，设置更大的行高）
                 has_image = any((row_idx, col) in image_map for col in range(7))
                 if has_image:
-                    self.param_table.setRowHeight(row_idx, 80)
+                    self.param_table.setRowHeight(row_idx, 140)  # 增大行高以显示更大的图片
                 else:
                     self.param_table.setRowHeight(row_idx, 30)
 
@@ -607,9 +666,9 @@ class RegulationDetailDialog(QDialog):
                     if (row_idx, col_idx) in image_map:
                         # 创建带图片图标的item
                         pixmap = image_map[(row_idx, col_idx)]
-                        # 缩放图片到合适大小
+                        # 缩放图片到合适大小（增大显示尺寸）
                         scaled_pixmap = pixmap.scaled(
-                            60, 60,
+                            120, 120,
                             Qt.AspectRatioMode.KeepAspectRatio,
                             Qt.TransformationMode.SmoothTransformation
                         )
