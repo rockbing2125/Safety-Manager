@@ -4,7 +4,7 @@
 import sys
 from pathlib import Path
 import shutil
-from typing import Tuple
+from typing import Tuple, Optional
 from loguru import logger
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))

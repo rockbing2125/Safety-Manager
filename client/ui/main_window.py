@@ -7,7 +7,9 @@ from PyQt6.QtGui import *
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from client.services import AuthService, RegulationService, SearchService, UpdateService
+from client.services import AuthService, RegulationService, SearchService, UpdateService, DataSyncService
+from client.utils.data_exporter import DataExporter
+from client.utils.data_importer import DataImporter
 from shared.config import settings
 from shared.constants import COUNTRIES, UI_CONFIG
 
@@ -62,10 +64,12 @@ class MainWindow(QMainWindow):
         self.regulation_service = RegulationService()
         self.search_service = SearchService()
         self.update_service = UpdateService()
+        self.data_sync_service = DataSyncService()
         self.current_user = auth_service.current_user
         self.last_notification_count = None  # 记录上次通知数量，None表示首次检查
         self.init_ui()
         self.load_regulations()
+        self.check_data_sync_on_startup()  # 启动时检查数据同步
         self.start_update_check_timer()
 
     def init_ui(self):
@@ -78,6 +82,17 @@ class MainWindow(QMainWindow):
         refresh = QAction("刷新", self)
         refresh.triggered.connect(self.load_regulations)
         file_menu.addAction(refresh)
+
+        file_menu.addSeparator()
+
+        # 导入/导出菜单
+        export_action = QAction("导出法规数据...", self)
+        export_action.triggered.connect(self.export_regulations)
+        file_menu.addAction(export_action)
+
+        import_action = QAction("导入法规数据...", self)
+        import_action.triggered.connect(self.import_regulations)
+        file_menu.addAction(import_action)
         
         reg_menu = menubar.addMenu("法规")
         add = QAction("新增", self)
@@ -336,6 +351,172 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # 推送成功后，刷新版本检查
             self.check_for_updates()
+
+    def export_regulations(self):
+        """导出法规数据"""
+        from PyQt6.QtWidgets import QFileDialog
+
+        # 选择导出格式
+        format_reply = QMessageBox.question(
+            self,
+            "选择导出格式",
+            "请选择导出格式：\n\n"
+            "【是】- 导出为 Excel 文件（推荐）\n"
+            "【否】- 导出为 JSON 文件",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes
+        )
+
+        if format_reply == QMessageBox.StandardButton.Cancel:
+            return
+
+        is_excel = format_reply == QMessageBox.StandardButton.Yes
+
+        # 选择保存路径
+        if is_excel:
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "导出法规数据",
+                f"regulations_{settings.APP_VERSION}.xlsx",
+                "Excel文件 (*.xlsx)"
+            )
+        else:
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "导出法规数据",
+                f"regulations_{settings.APP_VERSION}.json",
+                "JSON文件 (*.json)"
+            )
+
+        if not file_path:
+            return
+
+        # 执行导出
+        try:
+            exporter = DataExporter()
+            if is_excel:
+                success, message = exporter.export_to_excel(file_path)
+            else:
+                success, message = exporter.export_to_json(file_path)
+
+            if success:
+                reply = QMessageBox.information(
+                    self,
+                    "导出成功",
+                    f"{message}\n\n文件路径: {file_path}\n\n"
+                    f"您可以：\n"
+                    f"1. 将此文件分享给其他用户\n"
+                    f"2. 推送到 Git 仓库进行版本管理\n"
+                    f"3. 作为数据备份保存\n\n"
+                    f"是否打开文件所在文件夹？",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+
+                if reply == QMessageBox.StandardButton.Yes:
+                    import subprocess
+                    subprocess.run(['explorer', '/select,', file_path.replace('/', '\\')])
+            else:
+                QMessageBox.critical(self, "导出失败", message)
+        except Exception as e:
+            QMessageBox.critical(self, "导出失败", f"导出过程中出错: {str(e)}")
+
+    def import_regulations(self):
+        """导入法规数据"""
+        from PyQt6.QtWidgets import QFileDialog
+
+        # 选择文件
+        file_path, file_type = QFileDialog.getOpenFileName(
+            self,
+            "导入法规数据",
+            "",
+            "支持的文件 (*.xlsx *.json);;Excel文件 (*.xlsx);;JSON文件 (*.json)"
+        )
+
+        if not file_path:
+            return
+
+        # 询问是否覆盖已存在的法规
+        overwrite_reply = QMessageBox.question(
+            self,
+            "导入选项",
+            "如果法规编号已存在，是否覆盖？\n\n"
+            "【是】- 覆盖已存在的法规（更新数据）\n"
+            "【否】- 跳过已存在的法规（只导入新法规）",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.No
+        )
+
+        if overwrite_reply == QMessageBox.StandardButton.Cancel:
+            return
+
+        overwrite = overwrite_reply == QMessageBox.StandardButton.Yes
+
+        # 执行导入
+        try:
+            importer = DataImporter()
+
+            if file_path.endswith('.xlsx'):
+                success, message, stats = importer.import_from_excel(
+                    file_path, self.current_user.id, overwrite
+                )
+            elif file_path.endswith('.json'):
+                success, message, stats = importer.import_from_json(
+                    file_path, self.current_user.id, overwrite
+                )
+            else:
+                QMessageBox.warning(self, "错误", "不支持的文件格式")
+                return
+
+            if success:
+                # 显示详细统计
+                detail_msg = message
+                if stats.get('errors'):
+                    detail_msg += f"\n\n错误详情（前5条）:\n"
+                    for error in stats['errors'][:5]:
+                        detail_msg += f"• {error}\n"
+
+                QMessageBox.information(self, "导入完成", detail_msg)
+
+                # 刷新列表
+                self.load_regulations()
+            else:
+                QMessageBox.critical(self, "导入失败", message)
+        except Exception as e:
+            QMessageBox.critical(self, "导入失败", f"导入过程中出错: {str(e)}")
+
+    def check_data_sync_on_startup(self):
+        """启动时检查数据同步"""
+        from client.ui.data_sync_dialog import DataSyncDialog
+
+        # 检查Git是否可用
+        success, _ = self.data_sync_service.check_git_available()
+        if not success:
+            # Git不可用，跳过检查
+            return
+
+        # 检查是否有数据更新
+        try:
+            has_update, update_info = self.data_sync_service.check_for_data_updates()
+
+            if has_update and update_info:
+                # 有更新，显示对话框
+                dialog = DataSyncDialog(self, update_info)
+                result = dialog.exec()
+
+                if result == QDialog.DialogCode.Accepted:
+                    # 用户选择同步并成功，重新加载数据
+                    QMessageBox.information(
+                        self,
+                        "数据已更新",
+                        "数据同步成功！正在重新加载...",
+                        QMessageBox.StandardButton.Ok
+                    )
+                    self.load_regulations()
+        except Exception as e:
+            # 检查失败，静默处理
+            from loguru import logger
+            logger.warning(f"启动时检查数据同步失败: {e}")
 
     def closeEvent(self, event):
         self.auth_service.logout()
