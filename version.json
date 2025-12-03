@@ -1,9 +1,9 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "release_date": "2025-12-03",
-  "download_url": "https://github.com/rockbing2125/Safety-Manager/releases/download/v1.1.1/SafetyManager_v1.1.1.zip",
+  "download_url": "https://github.com/rockbing2125/Safety-Manager/releases/download/v1.1.4/SafetyManager_v1.1.5.zip",
   "changelog": [
-    "新增50549-1"
+    "测试"
   ],
   "required": false,
   "min_version": "1.0.0"
