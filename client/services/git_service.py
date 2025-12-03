@@ -12,14 +12,14 @@ from loguru import logger
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from shared.config import settings
+from shared.config import settings, BASE_DIR
 
 
 class GitService:
     """Git 自动推送服务"""
 
     def __init__(self):
-        self.repo_path = settings.BASE_DIR
+        self.repo_path = BASE_DIR
         self.version_file = self.repo_path / "version.json"
         self.config_file = self.repo_path / "shared" / "config.py"
 
