@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import subprocess
 import json
+import requests
 from typing import Tuple, Optional
 from datetime import datetime
 from loguru import logger
@@ -361,6 +362,312 @@ class GitService:
         except Exception as e:
             logger.error(f"测试连接失败: {e}")
             return False, f"测试失败: {str(e)}"
+
+    def _get_repo_info(self) -> Optional[Tuple[str, str]]:
+        """
+        获取仓库信息（owner/repo）
+
+        Returns:
+            (owner, repo) 或 None
+        """
+        try:
+            result = subprocess.run(
+                ['git', 'remote', 'get-url', 'origin'],
+                cwd=str(self.repo_path),
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode != 0:
+                return None
+
+            url = result.stdout.strip()
+
+            # 解析 GitHub URL
+            # https://github.com/owner/repo.git
+            # git@github.com:owner/repo.git
+            if 'github.com' in url:
+                if url.startswith('https://'):
+                    # https://github.com/owner/repo.git
+                    parts = url.replace('https://github.com/', '').replace('.git', '').split('/')
+                elif url.startswith('git@'):
+                    # git@github.com:owner/repo.git
+                    parts = url.replace('git@github.com:', '').replace('.git', '').split('/')
+                else:
+                    return None
+
+                if len(parts) >= 2:
+                    return parts[0], parts[1]
+
+            return None
+
+        except Exception as e:
+            logger.error(f"获取仓库信息失败: {e}")
+            return None
+
+    def create_github_release(self, version: str, changelog: list,
+                             github_token: str, release_file: Optional[str] = None) -> Tuple[bool, str, Optional[str]]:
+        """
+        创建 GitHub Release 并上传文件
+
+        Args:
+            version: 版本号（如 "1.1.4"）
+            changelog: 更新日志列表
+            github_token: GitHub Token
+            release_file: 要上传的文件路径（可选）
+
+        Returns:
+            (成功, 消息, 下载链接)
+        """
+        try:
+            # 获取仓库信息
+            repo_info = self._get_repo_info()
+            if not repo_info:
+                return False, "无法获取仓库信息，请检查是否配置了 GitHub 远程仓库", None
+
+            owner, repo = repo_info
+            tag_name = f"v{version}"
+
+            # 构建 Release 描述
+            changelog_text = "\n".join([f"- {item}" for item in changelog])
+            release_body = f"""## 更新内容
+
+{changelog_text}
+
+## 下载说明
+1. 下载下方的压缩包
+2. 解压到任意目录
+3. 运行程序即可自动更新
+
+---
+🤖 自动发布 via Safety Manager"""
+
+            # 创建 Release
+            logger.info(f"正在创建 GitHub Release: {tag_name}")
+
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+            headers = {
+                'Authorization': f'token {github_token}',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+
+            release_data = {
+                'tag_name': tag_name,
+                'name': f"SafetyManager v{version}",
+                'body': release_body,
+                'draft': False,
+                'prerelease': False
+            }
+
+            response = requests.post(api_url, headers=headers, json=release_data, timeout=30)
+
+            if response.status_code == 201:
+                release_info = response.json()
+                release_id = release_info['id']
+                logger.info(f"Release 创建成功: {release_id}")
+
+                # 如果提供了文件，上传文件
+                if release_file and Path(release_file).exists():
+                    success, message, download_url = self.upload_release_asset(
+                        release_id, release_file, github_token
+                    )
+                    if success:
+                        return True, f"Release 创建成功并上传文件完成", download_url
+                    else:
+                        return False, f"Release 创建成功但上传文件失败: {message}", None
+                else:
+                    # 没有文件，返回成功
+                    return True, "Release 创建成功", None
+
+            elif response.status_code == 422:
+                # Release 已存在，尝试获取
+                logger.warning(f"Release {tag_name} 已存在，尝试更新...")
+                return self._update_existing_release(owner, repo, tag_name, changelog, github_token, release_file)
+            else:
+                error_msg = response.json().get('message', '未知错误')
+                return False, f"创建 Release 失败: {error_msg}", None
+
+        except requests.exceptions.Timeout:
+            return False, "创建 Release 超时，请检查网络连接", None
+        except Exception as e:
+            logger.error(f"创建 GitHub Release 失败: {e}")
+            return False, f"创建失败: {str(e)}", None
+
+    def _update_existing_release(self, owner: str, repo: str, tag_name: str,
+                                changelog: list, github_token: str,
+                                release_file: Optional[str] = None) -> Tuple[bool, str, Optional[str]]:
+        """更新已存在的 Release"""
+        try:
+            # 获取已存在的 Release
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag_name}"
+            headers = {
+                'Authorization': f'token {github_token}',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+
+            response = requests.get(api_url, headers=headers, timeout=10)
+
+            if response.status_code != 200:
+                return False, f"获取已存在的 Release 失败", None
+
+            release_info = response.json()
+            release_id = release_info['id']
+
+            # 上传文件（如果提供）
+            if release_file and Path(release_file).exists():
+                success, message, download_url = self.upload_release_asset(
+                    release_id, release_file, github_token
+                )
+                if success:
+                    return True, "已更新现有 Release 并上传文件", download_url
+                else:
+                    return False, f"上传文件失败: {message}", None
+            else:
+                return True, "Release 已存在", None
+
+        except Exception as e:
+            logger.error(f"更新 Release 失败: {e}")
+            return False, f"更新失败: {str(e)}", None
+
+    def upload_release_asset(self, release_id: int, file_path: str,
+                            github_token: str) -> Tuple[bool, str, Optional[str]]:
+        """
+        上传文件到 GitHub Release
+
+        Args:
+            release_id: Release ID
+            file_path: 文件路径
+            github_token: GitHub Token
+
+        Returns:
+            (成功, 消息, 下载链接)
+        """
+        try:
+            file_path_obj = Path(file_path)
+            if not file_path_obj.exists():
+                return False, f"文件不存在: {file_path}", None
+
+            # 获取仓库信息
+            repo_info = self._get_repo_info()
+            if not repo_info:
+                return False, "无法获取仓库信息", None
+
+            owner, repo = repo_info
+            file_name = file_path_obj.name
+
+            logger.info(f"正在上传文件: {file_name} ({file_path_obj.stat().st_size / 1024 / 1024:.2f} MB)")
+
+            # 上传文件
+            upload_url = f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets"
+            headers = {
+                'Authorization': f'token {github_token}',
+                'Content-Type': 'application/zip'
+            }
+            params = {'name': file_name}
+
+            with open(file_path, 'rb') as f:
+                response = requests.post(
+                    upload_url,
+                    headers=headers,
+                    params=params,
+                    data=f,
+                    timeout=300  # 5分钟超时
+                )
+
+            if response.status_code == 201:
+                asset_info = response.json()
+                download_url = asset_info['browser_download_url']
+                logger.info(f"文件上传成功: {download_url}")
+                return True, "文件上传成功", download_url
+            else:
+                error_msg = response.json().get('message', '未知错误')
+                return False, f"上传失败: {error_msg}", None
+
+        except requests.exceptions.Timeout:
+            return False, "上传超时，文件可能太大或网络不稳定", None
+        except Exception as e:
+            logger.error(f"上传文件失败: {e}")
+            return False, f"上传失败: {str(e)}", None
+
+    def push_release_with_file(self, version: str, changelog: list,
+                               github_token: str, release_file: str,
+                               update_app_version: bool = True,
+                               required: bool = False) -> Tuple[bool, str]:
+        """
+        完整的发布流程：创建 Release、上传文件、更新 version.json
+
+        Args:
+            version: 版本号
+            changelog: 更新日志
+            github_token: GitHub Token
+            release_file: 发布文件路径
+            update_app_version: 是否更新 config.py
+            required: 是否强制更新
+
+        Returns:
+            (成功, 消息)
+        """
+        try:
+            logger.info("开始完整发布流程...")
+
+            # 1. 检查文件
+            if not Path(release_file).exists():
+                return False, f"发布文件不存在: {release_file}"
+
+            # 2. 创建 Release 并上传文件
+            logger.info("创建 GitHub Release 并上传文件...")
+            success, message, download_url = self.create_github_release(
+                version, changelog, github_token, release_file
+            )
+
+            if not success or not download_url:
+                return False, f"创建 Release 失败: {message}"
+
+            logger.info(f"Release 创建成功，下载链接: {download_url}")
+
+            # 3. 更新 version.json
+            logger.info("更新 version.json...")
+            success, msg = self.update_version_json(
+                version=version,
+                download_url=download_url,
+                changelog=changelog,
+                required=required
+            )
+
+            if not success:
+                return False, f"更新 version.json 失败: {msg}"
+
+            files_to_add = ['version.json']
+
+            # 4. 更新 config.py（可选）
+            if update_app_version:
+                logger.info("更新 shared/config.py...")
+                success, msg = self.update_app_version(version)
+                if success:
+                    files_to_add.append('shared/config.py')
+
+            # 5. Git 提交和推送
+            logger.info("提交并推送到 GitHub...")
+            success, msg = self.git_add_files(files_to_add)
+            if not success:
+                return False, f"添加文件失败: {msg}"
+
+            commit_message = self._generate_commit_message(version, changelog)
+            success, msg = self.git_commit(commit_message)
+            if not success and "nothing to commit" not in msg:
+                return False, f"提交失败: {msg}"
+
+            success, msg = self.git_push(github_token)
+            if not success:
+                return False, f"推送失败: {msg}"
+
+            logger.info(f"版本 {version} 发布成功！")
+            return True, f"版本 {version} 发布成功！\n下载链接: {download_url}"
+
+        except Exception as e:
+            logger.error(f"发布流程失败: {e}")
+            return False, f"发布失败: {str(e)}"
 
 
 # 测试代码

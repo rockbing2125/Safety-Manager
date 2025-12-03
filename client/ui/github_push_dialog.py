@@ -24,15 +24,15 @@ class GitPushWorker(QThread):
     finished = pyqtSignal(bool, str)  # 完成信号(成功, 消息)
 
     def __init__(self, git_service: GitService, version: str,
-                 download_url: str, changelog: list,
-                 github_token: str, update_app_version: bool,
+                 changelog: list, github_token: str,
+                 release_file: str, update_app_version: bool,
                  required: bool):
         super().__init__()
         self.git_service = git_service
         self.version = version
-        self.download_url = download_url
         self.changelog = changelog
         self.github_token = github_token
+        self.release_file = release_file
         self.update_app_version = update_app_version
         self.required = required
 
@@ -41,13 +41,13 @@ class GitPushWorker(QThread):
         try:
             self.progress.emit("开始推送版本更新...")
 
-            success, message = self.git_service.push_version_update(
+            success, message = self.git_service.push_release_with_file(
                 version=self.version,
-                download_url=self.download_url,
                 changelog=self.changelog,
-                required=self.required,
                 github_token=self.github_token,
-                update_app_version=self.update_app_version
+                release_file=self.release_file,
+                update_app_version=self.update_app_version,
+                required=self.required
             )
 
             self.finished.emit(success, message)
@@ -83,8 +83,10 @@ class GitHubPushDialog(QDialog):
         layout.addWidget(title)
 
         desc = QLabel(
-            "此功能会自动更新 version.json 并推送到 GitHub，\n"
-            "用户程序将在 1-2 分钟后自动检测到新版本。"
+            "此功能会自动：\n"
+            "1. 创建 GitHub Release 并上传安装包\n"
+            "2. 更新 version.json 文件\n"
+            "3. 推送到 GitHub，用户将自动收到更新通知"
         )
         desc.setStyleSheet("color: #666; font-size: 11px; padding: 5px 0;")
         layout.addWidget(desc)
@@ -105,15 +107,22 @@ class GitHubPushDialog(QDialog):
 
         # 新版本号
         self.version_input = QLineEdit()
-        self.version_input.setPlaceholderText("例如: 1.1.0")
+        self.version_input.setPlaceholderText("例如: 1.1.5")
         version_layout.addRow("新版本号 *:", self.version_input)
 
-        # 下载链接
-        self.download_url_input = QLineEdit()
-        self.download_url_input.setPlaceholderText(
-            "GitHub Release 下载链接（例如: https://github.com/...）"
-        )
-        version_layout.addRow("下载链接 *:", self.download_url_input)
+        # 发布文件选择
+        file_select_layout = QHBoxLayout()
+        self.file_path_input = QLineEdit()
+        self.file_path_input.setPlaceholderText("选择要发布的压缩包（.zip 或 .rar）")
+        self.file_path_input.setReadOnly(True)
+        file_select_layout.addWidget(self.file_path_input)
+
+        select_file_btn = QPushButton("选择文件...")
+        select_file_btn.setMaximumWidth(100)
+        select_file_btn.clicked.connect(self.select_release_file)
+        file_select_layout.addWidget(select_file_btn)
+
+        version_layout.addRow("发布文件 *:", file_select_layout)
 
         # 强制更新
         self.required_checkbox = QCheckBox("强制更新（用户必须更新才能使用）")
@@ -257,11 +266,25 @@ class GitHubPushDialog(QDialog):
         else:
             QMessageBox.warning(self, "失败", f"❌ {message}")
 
+    def select_release_file(self):
+        """选择发布文件"""
+        from PyQt6.QtWidgets import QFileDialog
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择发布文件",
+            "dist",  # 默认在dist目录
+            "压缩文件 (*.zip *.rar);;所有文件 (*.*)"
+        )
+
+        if file_path:
+            self.file_path_input.setText(file_path)
+
     def push_to_github(self):
         """推送到 GitHub"""
         # 验证输入
         version = self.version_input.text().strip()
-        download_url = self.download_url_input.text().strip()
+        release_file = self.file_path_input.text().strip()
         changelog_text = self.changelog_input.toPlainText().strip()
         github_token = self.token_input.text().strip()
 
@@ -270,9 +293,14 @@ class GitHubPushDialog(QDialog):
             self.version_input.setFocus()
             return
 
-        if not download_url:
-            QMessageBox.warning(self, "提示", "请输入下载链接")
-            self.download_url_input.setFocus()
+        if not release_file:
+            QMessageBox.warning(self, "提示", "请选择要发布的文件")
+            return
+
+        # 检查文件是否存在
+        from pathlib import Path
+        if not Path(release_file).exists():
+            QMessageBox.warning(self, "提示", f"文件不存在：{release_file}")
             return
 
         if not changelog_text:
@@ -289,15 +317,21 @@ class GitHubPushDialog(QDialog):
         changelog = [line.strip() for line in changelog_text.split('\n')
                     if line.strip()]
 
+        # 获取文件大小
+        file_size_mb = Path(release_file).stat().st_size / 1024 / 1024
+
         # 确认对话框
         reply = QMessageBox.question(
             self,
             "确认推送",
             f"确定要推送版本 v{version} 到 GitHub 吗？\n\n"
             f"此操作将：\n"
-            f"1. 更新 version.json 文件\n"
-            f"2. 提交并推送到 GitHub\n"
-            f"3. 用户将在 1-2 分钟后收到更新通知\n\n"
+            f"1. 创建 GitHub Release (v{version})\n"
+            f"2. 上传文件: {Path(release_file).name} ({file_size_mb:.2f} MB)\n"
+            f"3. 更新 version.json 文件\n"
+            f"4. 提交并推送到 GitHub\n"
+            f"5. 用户将自动收到更新通知\n\n"
+            f"⚠️ 上传可能需要几分钟，请耐心等待。\n\n"
             f"是否继续？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
@@ -318,9 +352,9 @@ class GitHubPushDialog(QDialog):
         self.push_worker = GitPushWorker(
             git_service=self.git_service,
             version=version,
-            download_url=download_url,
             changelog=changelog,
             github_token=github_token,
+            release_file=release_file,
             update_app_version=self.update_config_checkbox.isChecked(),
             required=self.required_checkbox.isChecked()
         )
@@ -343,21 +377,25 @@ class GitHubPushDialog(QDialog):
         if success:
             QMessageBox.information(
                 self,
-                "推送成功",
-                f"✅ {message}\n\n"
-                f"用户程序将在 1-2 分钟后自动检测到新版本。\n"
-                f"你可以在 GitHub 仓库查看更新。"
+                "发布成功",
+                f"🎉 {message}\n\n"
+                f"✅ GitHub Release 已创建\n"
+                f"✅ 安装包已上传\n"
+                f"✅ version.json 已更新\n\n"
+                f"用户将在启动程序时自动收到更新通知。\n"
+                f"你可以在 GitHub 仓库的 Releases 页面查看。"
             )
             self.accept()
         else:
             QMessageBox.critical(
                 self,
-                "推送失败",
+                "发布失败",
                 f"❌ {message}\n\n"
                 f"请检查：\n"
-                f"1. GitHub Token 是否正确\n"
+                f"1. GitHub Token 是否正确且有足够权限\n"
                 f"2. 网络连接是否正常\n"
-                f"3. 是否有推送权限"
+                f"3. 文件是否可以访问\n"
+                f"4. GitHub API 是否可用"
             )
 
 
