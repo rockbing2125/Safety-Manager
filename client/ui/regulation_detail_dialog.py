@@ -608,7 +608,11 @@ class RegulationDetailDialog(QDialog):
                         # 创建带图片图标的item
                         pixmap = image_map[(row_idx, col_idx)]
                         # 缩放图片到合适大小
-                        scaled_pixmap = pixmap.scaled(60, 60, aspectRatioMode=1, transformMode=1)
+                        scaled_pixmap = pixmap.scaled(
+                            60, 60,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation
+                        )
                         icon = QIcon(scaled_pixmap)
                         item = QTableWidgetItem(icon, "")
                         item.setData(Qt.ItemDataRole.UserRole, "IMAGE")  # 标记为图片
