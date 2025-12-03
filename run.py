@@ -18,10 +18,10 @@ def check_dependencies():
         import sqlalchemy
         import bcrypt
         import loguru
-        print("✓ 所有依赖已安装")
+        print("[OK] 所有依赖已安装")
         return True
     except ImportError as e:
-        print(f"✗ 缺少依赖: {e}")
+        print(f"[Error] 缺少依赖: {e}")
         print("\n请运行: pip install -r requirements.txt")
         return False
 
