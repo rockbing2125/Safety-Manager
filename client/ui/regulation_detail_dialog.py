@@ -471,7 +471,7 @@ class RegulationDetailDialog(QDialog):
                 self.param_table.removeRow(current_row)
 
     def import_excel_parameters(self):
-        """导入Excel参数（正确处理合并单元格）"""
+        """导入Excel参数（正确处理合并单元格和图片）"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择Excel文件", "", "Excel文件 (*.xlsx *.xls)"
         )
@@ -481,6 +481,9 @@ class RegulationDetailDialog(QDialog):
 
         try:
             import openpyxl
+            from io import BytesIO
+            from PyQt6.QtGui import QPixmap, QIcon
+            from PyQt6.QtCore import QSize
 
             wb = openpyxl.load_workbook(file_path)
             ws = wb.active
@@ -489,6 +492,27 @@ class RegulationDetailDialog(QDialog):
             self.param_table.setRowCount(0)
             self.param_table.clearSpans()
 
+            # 提取Excel中的图片
+            image_map = {}  # 存储图片位置映射 {(row, col): QPixmap}
+            if hasattr(ws, '_images') and ws._images:
+                for img in ws._images:
+                    try:
+                        # 获取图片数据
+                        image_data = img._data()
+                        pixmap = QPixmap()
+                        pixmap.loadFromData(image_data)
+
+                        # 获取图片锚点位置（图片所在的单元格）
+                        if hasattr(img, 'anchor') and hasattr(img.anchor, '_from'):
+                            anchor = img.anchor._from
+                            # Excel的行列索引从0开始，但我们从第2行开始读取
+                            row = anchor.row - 1  # 转换为我们的表格行号（第2行开始=0）
+                            col = anchor.col
+                            if row >= 0 and col < 7:  # 只处理前7列
+                                image_map[(row, col)] = pixmap
+                    except:
+                        continue
+
             # 读取所有数据（从第2行开始，跳过表头）
             all_rows = []
             for excel_row in ws.iter_rows(min_row=2, values_only=True):
@@ -496,65 +520,55 @@ class RegulationDetailDialog(QDialog):
                     row_data = []
                     for col_idx in range(7):
                         value = excel_row[col_idx] if col_idx < len(excel_row) else None
-                        # 处理图片公式
+                        # 处理图片公式 - 标记为特殊值
                         if value and isinstance(value, str) and '_xlfn.DISPIMG' in value:
-                            value = "[图片]"
+                            value = "__IMAGE__"  # 使用特殊标记
                         row_data.append(str(value) if value is not None else "")
                     all_rows.append(row_data)
 
             # 填充表格
             self.param_table.setRowCount(len(all_rows))
+            self.param_table.setRowHeight(0, 60)  # 设置默认行高以容纳图片
+
             for row_idx, row_data in enumerate(all_rows):
+                # 设置行高（如果该行有图片，设置更大的行高）
+                has_image = any((row_idx, col) in image_map for col in range(7))
+                if has_image:
+                    self.param_table.setRowHeight(row_idx, 80)
+
                 for col_idx, value in enumerate(row_data):
-                    item = QTableWidgetItem(value)
+                    # 检查该位置是否有图片
+                    if (row_idx, col_idx) in image_map:
+                        # 创建带图片图标的item
+                        pixmap = image_map[(row_idx, col_idx)]
+                        # 缩放图片到合适大小
+                        scaled_pixmap = pixmap.scaled(60, 60, aspectRatioMode=1, transformMode=1)
+                        icon = QIcon(scaled_pixmap)
+                        item = QTableWidgetItem(icon, "")
+                        item.setData(Qt.ItemDataRole.UserRole, "IMAGE")  # 标记为图片
+                    elif value == "__IMAGE__":
+                        # 有图片标记但没找到实际图片
+                        item = QTableWidgetItem("[图片]")
+                    else:
+                        item = QTableWidgetItem(value)
+
                     self.param_table.setItem(row_idx, col_idx, item)
 
             # 应用合并单元格（对类别列）
             self.apply_category_merge()
 
+            image_count = len(image_map)
             QMessageBox.information(
                 self, "导入成功",
                 f"成功导入 {len(all_rows)} 行参数！\n\n"
-                f"类别列已自动合并显示。"
+                f"类别列已自动合并显示。\n"
+                f"提取了 {image_count} 个图片。"
             )
 
         except ImportError:
             QMessageBox.critical(self, "错误", "需要: pip install openpyxl")
         except Exception as e:
             QMessageBox.critical(self, "错误", f"导入失败:\n{str(e)}")
-
-
-            # 应用合并单元格（仅对前7列）
-            for (table_row, table_col), (row_span, col_span) in merge_info.items():
-                if table_col < 7:  # 只合并前7列
-                    # 确保不超出表格范围
-                    if table_row < self.param_table.rowCount():
-                        actual_row_span = min(row_span, self.param_table.rowCount() - table_row)
-                        actual_col_span = min(col_span, 7 - table_col)
-                        
-                        self.param_table.setSpan(table_row, table_col, actual_row_span, actual_col_span)
-
-            QMessageBox.information(
-                self,
-                "导入成功",
-                f"成功导入 {row_count} 行参数数据！\n\n"
-                f"合并单元格已正确显示。\n"
-                f"双击单元格可编辑。"
-            )
-
-        except ImportError:
-            QMessageBox.critical(
-                self,
-                "错误",
-                "需要安装openpyxl库\n\n"
-                "请执行: pip install openpyxl"
-            )
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "导入失败",
-                f"Excel导入失败:\n\n{str(e)}"
-            )
             import traceback
             traceback.print_exc()
 
@@ -577,13 +591,23 @@ class RegulationDetailDialog(QDialog):
             # 保存新参数
             saved_count = 0
             for row in range(row_count):
-                category = self.param_table.item(row, 0).text() if self.param_table.item(row, 0) else ""
-                parameter = self.param_table.item(row, 1).text() if self.param_table.item(row, 1) else ""
-                default_val = self.param_table.item(row, 2).text() if self.param_table.item(row, 2) else ""
-                upper = self.param_table.item(row, 3).text() if self.param_table.item(row, 3) else ""
-                lower = self.param_table.item(row, 4).text() if self.param_table.item(row, 4) else ""
-                unit = self.param_table.item(row, 5).text() if self.param_table.item(row, 5) else ""
-                remark = self.param_table.item(row, 6).text() if self.param_table.item(row, 6) else ""
+                # 处理图片单元格：如果单元格被标记为图片，保存为"[图片]"
+                def get_cell_value(row, col):
+                    item = self.param_table.item(row, col)
+                    if not item:
+                        return ""
+                    # 检查是否是图片单元格
+                    if item.data(Qt.ItemDataRole.UserRole) == "IMAGE":
+                        return "[图片]"
+                    return item.text()
+
+                category = get_cell_value(row, 0)
+                parameter = get_cell_value(row, 1)
+                default_val = get_cell_value(row, 2)
+                upper = get_cell_value(row, 3)
+                lower = get_cell_value(row, 4)
+                unit = get_cell_value(row, 5)
+                remark = get_cell_value(row, 6)
 
                 param = RegulationParameter(
                     regulation_id=self.regulation_id,
