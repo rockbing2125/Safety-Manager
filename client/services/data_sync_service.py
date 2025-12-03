@@ -43,15 +43,22 @@ class DataSyncService:
                 ['git', '--version'],
                 capture_output=True,
                 text=True,
-                timeout=5,
-                cwd=str(self.repo_path)
+                timeout=3,  # 减少超时时间
+                cwd=str(self.repo_path),
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
             )
             if result.returncode == 0:
                 return True, "Git 可用"
             return False, "Git 未安装或不可用"
+        except subprocess.TimeoutExpired:
+            logger.warning("Git 检查超时")
+            return False, "Git 检查超时，可能未安装"
+        except FileNotFoundError:
+            logger.warning("Git 未找到")
+            return False, "Git 未安装，请先安装 Git"
         except Exception as e:
             logger.error(f"检查 Git 失败: {e}")
-            return False, f"检查失败: {str(e)}"
+            return False, "Git 不可用"
 
     def fetch_remote_updates(self) -> Tuple[bool, str]:
         """从远程仓库获取更新（不合并）"""

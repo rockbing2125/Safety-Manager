@@ -33,15 +33,19 @@ class UpdateService:
         try:
             logger.info(f"检查版本更新: {self.update_url}")
 
+            # 使用英文User-Agent，避免编码问题
             response = requests.get(
                 self.update_url,
                 timeout=10,
-                headers={'User-Agent': f'{settings.APP_NAME}/{self.current_version}'}
+                headers={'User-Agent': f'SafetyManager/{self.current_version}'}
             )
 
             if response.status_code != 200:
                 logger.warning(f"检查更新失败: HTTP {response.status_code}")
                 return False, None
+
+            # 确保响应是UTF-8编码
+            response.encoding = 'utf-8'
 
             # 解析JSON响应
             update_info = response.json()
