@@ -736,8 +736,13 @@ class RegulationDetailDialog(QDialog):
 
         try:
             from client.models import RegulationParameter
+            from pathlib import Path
 
-            # 删除现有参数
+            # 创建图片存储目录
+            param_images_dir = Path("data") / "parameter_images" / str(self.regulation_id)
+            param_images_dir.mkdir(parents=True, exist_ok=True)
+
+            # 删除现有参数（但保留旧图片文件）
             self.db.query(RegulationParameter).filter(
                 RegulationParameter.regulation_id == self.regulation_id
             ).delete()
@@ -745,13 +750,24 @@ class RegulationDetailDialog(QDialog):
             # 保存新参数
             saved_count = 0
             for row in range(row_count):
-                # 处理图片单元格：如果单元格被标记为图片，保存为"[图片]"
+                # 处理图片单元格：如果单元格被标记为图片，保存图片到文件
                 def get_cell_value(row, col):
                     item = self.param_table.item(row, col)
                     if not item:
                         return ""
                     # 检查是否是图片单元格
                     if item.data(Qt.ItemDataRole.UserRole) == "IMAGE":
+                        # 保存图片到文件
+                        if hasattr(self, 'original_images') and (row, col) in self.original_images:
+                            pixmap = self.original_images[(row, col)]
+                            image_filename = f"image_{row}_{col}.png"
+                            image_path = param_images_dir / image_filename
+
+                            # 保存图片
+                            pixmap.save(str(image_path), "PNG")
+
+                            # 返回图片路径标记
+                            return f"IMAGE:{image_path}"
                         return "[图片]"
                     return item.text()
 
@@ -801,6 +817,8 @@ class RegulationDetailDialog(QDialog):
         """加载已保存的参数"""
         try:
             from client.models import RegulationParameter
+            from pathlib import Path
+            from PyQt6.QtGui import QPixmap, QIcon
 
             params = self.db.query(RegulationParameter).filter(
                 RegulationParameter.regulation_id == self.regulation_id
@@ -810,15 +828,56 @@ class RegulationDetailDialog(QDialog):
                 self.param_table.setRowCount(0)
                 self.param_table.clearSpans()
 
+                # 用于处理每个单元格的函数
+                def create_table_item(value, row_idx, col_idx):
+                    if value and isinstance(value, str) and value.startswith("IMAGE:"):
+                        # 这是图片路径
+                        image_path_str = value[6:]  # 去掉"IMAGE:"前缀
+                        image_path = Path(image_path_str)
+
+                        if image_path.exists():
+                            # 加载图片
+                            pixmap = QPixmap(str(image_path))
+                            if not pixmap.isNull():
+                                # 保存原始图片用于双击查看
+                                self.original_images[(row_idx, col_idx)] = pixmap
+
+                                # 缩放图片
+                                scaled_pixmap = pixmap.scaled(
+                                    120, 120,
+                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                    Qt.TransformationMode.SmoothTransformation
+                                )
+                                icon = QIcon(scaled_pixmap)
+                                item = QTableWidgetItem(icon, "")
+                                item.setData(Qt.ItemDataRole.UserRole, "IMAGE")
+                                return item
+                        # 如果文件不存在或加载失败
+                        return QTableWidgetItem("[图片已丢失]")
+                    else:
+                        return QTableWidgetItem(value or "")
+
                 for row, param in enumerate(params):
                     self.param_table.insertRow(row)
-                    self.param_table.setItem(row, 0, QTableWidgetItem(param.category or ""))
-                    self.param_table.setItem(row, 1, QTableWidgetItem(param.parameter_name or ""))
-                    self.param_table.setItem(row, 2, QTableWidgetItem(param.default_value or ""))
-                    self.param_table.setItem(row, 3, QTableWidgetItem(param.upper_limit or ""))
-                    self.param_table.setItem(row, 4, QTableWidgetItem(param.lower_limit or ""))
-                    self.param_table.setItem(row, 5, QTableWidgetItem(param.unit or ""))
-                    self.param_table.setItem(row, 6, QTableWidgetItem(param.remark or ""))
+
+                    # 检查每个单元格是否有图片
+                    has_image = any(
+                        val and isinstance(val, str) and val.startswith("IMAGE:")
+                        for val in [param.category, param.parameter_name, param.default_value,
+                                   param.upper_limit, param.lower_limit, param.unit, param.remark]
+                    )
+
+                    # 如果该行有图片，设置更大的行高
+                    if has_image:
+                        self.param_table.setRowHeight(row, 140)
+
+                    self.param_table.setItem(row, 0, create_table_item(param.category, row, 0))
+                    self.param_table.setItem(row, 1, create_table_item(param.parameter_name, row, 1))
+                    self.param_table.setItem(row, 2, create_table_item(param.default_value, row, 2))
+                    self.param_table.setItem(row, 3, create_table_item(param.upper_limit, row, 3))
+                    self.param_table.setItem(row, 4, create_table_item(param.lower_limit, row, 4))
+                    self.param_table.setItem(row, 5, create_table_item(param.unit, row, 5))
+                    self.param_table.setItem(row, 6, create_table_item(param.remark, row, 6))
 
                 self.apply_category_merge()
 
