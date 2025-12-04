@@ -87,7 +87,15 @@ class RegulationDialog(QDialog):
         for country in COUNTRIES:
             self.country_combo.addItem(country, country)
         self.country_combo.setMinimumHeight(32)  # 设置下拉框高度
+        self.country_combo.currentTextChanged.connect(self._on_country_changed)
         layout.addRow("国家/地区:", self.country_combo)
+
+        # 自定义国家/地区输入框（选择"其他"时显示）
+        self.custom_country_input = QLineEdit()
+        self.custom_country_input.setPlaceholderText("请输入国家/地区名称")
+        self.custom_country_input.setMinimumHeight(32)
+        self.custom_country_input.hide()  # 默认隐藏
+        layout.addRow("", self.custom_country_input)
 
         # 版本号
         self.version_input = QLineEdit()
@@ -173,6 +181,15 @@ class RegulationDialog(QDialog):
         layout.addStretch()
         return layout
 
+    def _on_country_changed(self, text):
+        """国家/地区选择变化时的处理"""
+        if text == "其他":
+            self.custom_country_input.show()
+            self.custom_country_input.setFocus()
+        else:
+            self.custom_country_input.hide()
+            self.custom_country_input.clear()
+
     def load_regulation_data(self):
         """加载法规数据（编辑模式）"""
         if not self.regulation:
@@ -185,6 +202,12 @@ class RegulationDialog(QDialog):
             index = self.country_combo.findData(self.regulation.country)
             if index >= 0:
                 self.country_combo.setCurrentIndex(index)
+            else:
+                # 国家不在列表中，选择"其他"并填入自定义输入框
+                other_index = self.country_combo.findData("其他")
+                if other_index >= 0:
+                    self.country_combo.setCurrentIndex(other_index)
+                    self.custom_country_input.setText(self.regulation.country)
 
         if self.regulation.version:
             self.version_input.setText(self.regulation.version)
@@ -245,7 +268,16 @@ class RegulationDialog(QDialog):
 
         code = self.code_input.text().strip()
         name = self.name_input.text().strip()
+
+        # 获取国家/地区，如果选择"其他"则使用自定义输入
         country = self.country_combo.currentData()
+        if country == "其他":
+            custom_country = self.custom_country_input.text().strip()
+            if not custom_country:
+                QMessageBox.warning(self, "警告", "请输入自定义的国家/地区名称")
+                return
+            country = custom_country
+
         version = self.version_input.text().strip()
         status = self.status_combo.currentData()
         description = self.description_input.toPlainText().strip()
