@@ -25,6 +25,7 @@ class RegulationParameter(Base):
     upper_limit = Column(String(100))
     lower_limit = Column(String(100))
     unit = Column(String(50))
+    coefficient = Column(String(50))  # 系数
     remark = Column(Text)
     remark_image = Column(LargeBinary)
     row_order = Column(Integer, default=0)
