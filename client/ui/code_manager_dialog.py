@@ -64,8 +64,15 @@ class CodeManagerDialog(QDialog):
             "ID", "文件名", "版本", "说明", "创建时间"
         ])
         self.code_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.code_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.code_table.doubleClicked.connect(self.view_code)
+        # 允许单击编辑
+        self.code_table.setEditTriggers(
+            QTableWidget.EditTrigger.SelectedClicked |
+            QTableWidget.EditTrigger.DoubleClicked
+        )
+        # 连接编辑完成信号
+        self.code_table.itemChanged.connect(self.on_item_changed)
+        # 双击文件名列时查看代码
+        self.code_table.cellDoubleClicked.connect(self.on_cell_double_clicked)
 
         # 设置行高
         self.code_table.verticalHeader().setDefaultSectionSize(40)
@@ -97,6 +104,9 @@ class CodeManagerDialog(QDialog):
 
     def load_codes(self):
         """加载代码列表"""
+        # 暂时断开信号，避免加载时触发编辑事件
+        self.code_table.itemChanged.disconnect(self.on_item_changed)
+
         codes = self.db.query(CodeFile).order_by(
             CodeFile.created_at.desc()
         ).all()
@@ -104,13 +114,32 @@ class CodeManagerDialog(QDialog):
         self.code_table.setRowCount(len(codes))
 
         for row, code in enumerate(codes):
-            self.code_table.setItem(row, 0, QTableWidgetItem(str(code.id)))
-            self.code_table.setItem(row, 1, QTableWidgetItem(code.file_name))
-            self.code_table.setItem(row, 2, QTableWidgetItem(code.version or ""))
-            self.code_table.setItem(row, 3, QTableWidgetItem(code.description or ""))
+            # ID - 不可编辑
+            id_item = QTableWidgetItem(str(code.id))
+            id_item.setFlags(id_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.code_table.setItem(row, 0, id_item)
 
+            # 文件名 - 不可编辑
+            filename_item = QTableWidgetItem(code.file_name)
+            filename_item.setFlags(filename_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.code_table.setItem(row, 1, filename_item)
+
+            # 版本 - 可编辑
+            version_item = QTableWidgetItem(code.version or "")
+            self.code_table.setItem(row, 2, version_item)
+
+            # 说明 - 可编辑
+            desc_item = QTableWidgetItem(code.description or "")
+            self.code_table.setItem(row, 3, desc_item)
+
+            # 创建时间 - 不可编辑
             time_str = code.created_at.strftime("%Y-%m-%d %H:%M") if code.created_at else ""
-            self.code_table.setItem(row, 4, QTableWidgetItem(time_str))
+            time_item = QTableWidgetItem(time_str)
+            time_item.setFlags(time_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.code_table.setItem(row, 4, time_item)
+
+        # 重新连接信号
+        self.code_table.itemChanged.connect(self.on_item_changed)
 
     def upload_code(self):
         """上传代码文件"""
@@ -142,6 +171,38 @@ class CodeManagerDialog(QDialog):
             self.load_codes()
         else:
             QMessageBox.critical(self, "错误", message)
+
+    def on_item_changed(self, item):
+        """单元格内容改变时保存到数据库"""
+        row = item.row()
+        col = item.column()
+
+        # 只处理版本(2)和说明(3)列
+        if col not in [2, 3]:
+            return
+
+        code_id = int(self.code_table.item(row, 0).text())
+        code = self.db.query(CodeFile).filter(CodeFile.id == code_id).first()
+
+        if not code:
+            return
+
+        try:
+            if col == 2:  # 版本列
+                code.version = item.text().strip() or None
+            elif col == 3:  # 说明列
+                code.description = item.text().strip() or None
+
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            QMessageBox.critical(self, "错误", f"保存失败: {str(e)}")
+
+    def on_cell_double_clicked(self, row, col):
+        """双击单元格时的处理"""
+        # 只有双击文件名列(1)时才查看代码
+        if col == 1:
+            self.view_code()
 
     def view_code(self):
         """查看代码"""
