@@ -109,7 +109,7 @@ class GitHubPushDialog(QDialog):
         # 新版本号
         self.version_input = QLineEdit()
         self.version_input.setPlaceholderText("例如: 1.1.5")
-        self.version_input.setMinimumHeight(32)  # 设置输入框高度
+        self.version_input.setMinimumHeight(24)  # 设置输入框高度
         version_layout.addRow("新版本号 *:", self.version_input)
 
         # 发布文件选择
@@ -117,7 +117,7 @@ class GitHubPushDialog(QDialog):
         self.file_path_input = QLineEdit()
         self.file_path_input.setPlaceholderText("选择要发布的压缩包（.zip 或 .rar）")
         self.file_path_input.setReadOnly(True)
-        self.file_path_input.setMinimumHeight(32)  # 设置输入框高度
+        self.file_path_input.setMinimumHeight(24)  # 设置输入框高度
         file_select_layout.addWidget(self.file_path_input)
 
         select_file_btn = QPushButton("选择文件...")
@@ -166,7 +166,7 @@ class GitHubPushDialog(QDialog):
         self.token_input = QLineEdit()
         self.token_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.token_input.setPlaceholderText("输入 GitHub Personal Access Token（高级密码）")
-        self.token_input.setMinimumHeight(32)  # 设置输入框高度
+        self.token_input.setMinimumHeight(24)  # 设置输入框高度
         github_layout.addRow("GitHub Token *:", self.token_input)
 
         # 帮助链接

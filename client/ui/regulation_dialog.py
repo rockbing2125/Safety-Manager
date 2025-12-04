@@ -72,13 +72,13 @@ class RegulationDialog(QDialog):
         # 法规编号
         self.code_input = QLineEdit()
         self.code_input.setPlaceholderText("例如: EN50549-1")
-        self.code_input.setMinimumHeight(32)  # 设置输入框高度
+        self.code_input.setMinimumHeight(24)  # 设置输入框高度
         layout.addRow("法规编号 *:", self.code_input)
 
         # 法规名称
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("例如: 欧洲并网标准 EN50549-1")
-        self.name_input.setMinimumHeight(32)  # 设置输入框高度
+        self.name_input.setMinimumHeight(24)  # 设置输入框高度
         layout.addRow("法规名称 *:", self.name_input)
 
         # 国家/地区
@@ -86,28 +86,28 @@ class RegulationDialog(QDialog):
         self.country_combo.addItem("请选择...", None)
         for country in COUNTRIES:
             self.country_combo.addItem(country, country)
-        self.country_combo.setMinimumHeight(32)  # 设置下拉框高度
+        self.country_combo.setMinimumHeight(24)  # 设置下拉框高度
         self.country_combo.currentTextChanged.connect(self._on_country_changed)
         layout.addRow("国家/地区:", self.country_combo)
 
         # 自定义国家/地区输入框（选择"其他"时显示）
         self.custom_country_input = QLineEdit()
         self.custom_country_input.setPlaceholderText("请输入国家/地区名称")
-        self.custom_country_input.setMinimumHeight(32)
+        self.custom_country_input.setMinimumHeight(24)
         self.custom_country_input.hide()  # 默认隐藏
         layout.addRow("", self.custom_country_input)
 
         # 版本号
         self.version_input = QLineEdit()
         self.version_input.setPlaceholderText("例如: 2019")
-        self.version_input.setMinimumHeight(32)  # 设置输入框高度
+        self.version_input.setMinimumHeight(24)  # 设置输入框高度
         layout.addRow("版本号:", self.version_input)
 
         # 状态
         self.status_combo = QComboBox()
         for status in RegulationStatus:
             self.status_combo.addItem(status.value, status)
-        self.status_combo.setMinimumHeight(32)  # 设置下拉框高度
+        self.status_combo.setMinimumHeight(24)  # 设置下拉框高度
         layout.addRow("状态:", self.status_combo)
 
         group.setLayout(layout)
@@ -146,7 +146,7 @@ class RegulationDialog(QDialog):
 
         self.tag_input = QLineEdit()
         self.tag_input.setPlaceholderText("输入新标签...")
-        self.tag_input.setMinimumHeight(32)  # 设置输入框高度
+        self.tag_input.setMinimumHeight(24)  # 设置输入框高度
         right_layout.addWidget(self.tag_input)
 
         add_tag_btn = QPushButton("添加标签")

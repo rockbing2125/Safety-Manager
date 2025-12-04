@@ -40,19 +40,19 @@ class PushUpdateDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItem("软件版本更新", NotificationType.SOFTWARE.value)
         self.type_combo.addItem("法规内容更新", NotificationType.REGULATION.value)
-        self.type_combo.setMinimumHeight(32)  # 设置下拉框高度
+        self.type_combo.setMinimumHeight(24)  # 设置下拉框高度
         basic_layout.addRow("通知类型:", self.type_combo)
 
         # 标题
         self.title_input = QLineEdit()
         self.title_input.setPlaceholderText("例如: 系统升级至 v1.1.0")
-        self.title_input.setMinimumHeight(32)  # 设置输入框高度
+        self.title_input.setMinimumHeight(24)  # 设置输入框高度
         basic_layout.addRow("标题 *:", self.title_input)
 
         # 版本号（可选）
         self.version_input = QLineEdit()
         self.version_input.setPlaceholderText("例如: 1.1.0（软件更新时填写）")
-        self.version_input.setMinimumHeight(32)  # 设置输入框高度
+        self.version_input.setMinimumHeight(24)  # 设置输入框高度
         basic_layout.addRow("版本号:", self.version_input)
 
         basic_group.setLayout(basic_layout)
