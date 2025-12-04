@@ -12,6 +12,7 @@ from shared.config import settings
 from shared.constants import LOG_FORMAT
 from client.models import init_db
 from client.ui import LoginDialog, MainWindow
+from client.ui.styles import MODERN_STYLE
 
 
 def setup_logging():
@@ -107,22 +108,13 @@ def main():
         return 1
 
     try:
-        print(">>> 步骤 4/5: 应用样式...")
-        logger.info("正在应用样式...")
+        print(">>> 步骤 4/5: 应用美化样式...")
+        logger.info("正在应用美化样式...")
         sys.stdout.flush()
-        # 应用样式表
-        stylesheet = """
-QPushButton{background:#0078d4;color:white;border:none;padding:8px 16px;border-radius:4px;font-weight:bold;min-height:28px}
-QPushButton:hover{background:#106ebe}
-QLineEdit{border:2px solid #e1e1e1;border-radius:4px;padding:8px 10px;min-height:20px}
-QLineEdit:focus{border-color:#0078d4}
-QTableWidget::item:selected{background:#0078d4;color:white}
-QHeaderView::section{background:#f5f5f5;padding:8px;border:none;border-bottom:2px solid #0078d4;font-weight:bold}
-QTabBar::tab:selected{background:#0078d4;color:white}
-    """
-        app.setStyleSheet(stylesheet)
-        print(">>> 样式应用成功")
-        logger.info("样式应用成功")
+        # 应用现代化美观样式
+        app.setStyleSheet(MODERN_STYLE)
+        print(">>> 美化样式应用成功")
+        logger.info("美化样式应用成功")
         sys.stdout.flush()
     except Exception as e:
         print(f"!!! 样式应用失败: {e}")

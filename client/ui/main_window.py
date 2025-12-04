@@ -127,34 +127,70 @@ class MainWindow(QMainWindow):
         
         widget = QWidget()
         layout = QVBoxLayout()
-        
-        search = QHBoxLayout()
-        search.addWidget(QLabel("搜索:"))
-        self.search_input = QLineEdit()
-        self.search_input.returnPressed.connect(self.search_regulations)
-        search.addWidget(self.search_input)
-        search.addWidget(QPushButton("搜索", clicked=self.search_regulations))
-        layout.addLayout(search)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(12)
 
-        # 添加提示文字
-        hint_label = QLabel("双击法规进行查看法规详情")
-        hint_label.setStyleSheet("color: #888; font-size: 11px; padding-left: 5px;")
+        # 搜索栏 - 改进样式
+        search_widget = QWidget()
+        search_widget.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 8px;
+                padding: 8px;
+            }
+        """)
+        search = QHBoxLayout(search_widget)
+        search.setContentsMargins(8, 8, 8, 8)
+
+        search_label = QLabel("🔍 搜索:")
+        search_label.setStyleSheet("font-weight: 600; font-size: 14px; color: #2c3e50;")
+        search.addWidget(search_label)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("输入法规编号、名称或国家进行搜索...")
+        self.search_input.returnPressed.connect(self.search_regulations)
+        self.search_input.setMinimumHeight(32)
+        search.addWidget(self.search_input)
+
+        search_btn = QPushButton("搜索")
+        search_btn.setMinimumWidth(100)
+        search_btn.clicked.connect(self.search_regulations)
+        search.addWidget(search_btn)
+
+        layout.addWidget(search_widget)
+
+        # 添加提示文字 - 改进样式
+        hint_label = QLabel("💡 提示：双击法规可查看详细信息")
+        hint_label.setStyleSheet("""
+            color: #7f8c8d;
+            font-size: 12px;
+            padding: 4px 8px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+        """)
         layout.addWidget(hint_label)
-        
+
+        # 表格 - 启用交替行背景色
         self.table = QTableWidget()
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["编号", "名称", "国家", "状态", "版本", "时间"])
+        self.table.setHorizontalHeaderLabels(["编号", "名称", "国家/地区", "状态", "版本", "创建时间"])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.doubleClicked.connect(self.view_detail)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_context_menu)
+        self.table.setAlternatingRowColors(True)  # 启用交替行背景色
+        self.table.verticalHeader().setVisible(False)  # 隐藏行号
 
         # 设置列宽
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.setColumnWidth(0, 200)  # 编号列
         self.table.setColumnWidth(1, 400)  # 名称列
+        self.table.setColumnWidth(2, 150)  # 国家列
+        self.table.setColumnWidth(3, 120)  # 状态列
+        self.table.setColumnWidth(4, 100)  # 版本列
 
         layout.addWidget(self.table)
         

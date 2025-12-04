@@ -29,81 +29,139 @@ class LoginDialog(QDialog):
     def init_ui(self):
         """初始化UI"""
         self.setWindowTitle(f"{settings.APP_NAME} - 登录")
-        self.setFixedSize(400, 300)
+        self.setFixedSize(480, 420)
         self.setModal(True)
 
+        # 设置对话框样式
+        self.setStyleSheet("""
+            QDialog {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                            stop:0 #667eea, stop:1 #764ba2);
+            }
+        """)
+
         layout = QVBoxLayout()
-        layout.setSpacing(20)
-        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(15)
+        layout.setContentsMargins(40, 40, 40, 40)
+
+        # 登录卡片容器
+        card = QWidget()
+        card.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(35, 35, 35, 35)
+        card_layout.setSpacing(20)
 
         # 标题
         title_label = QLabel(settings.APP_NAME)
         title_font = QFont()
-        title_font.setPointSize(18)
+        title_font.setPointSize(22)
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setMinimumHeight(40)
-        layout.addWidget(title_label)
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 5px;")
+        card_layout.addWidget(title_label)
 
         # 版本
         version_label = QLabel(f"版本 {settings.APP_VERSION}")
         version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(version_label)
+        version_label.setStyleSheet("color: #7f8c8d; font-size: 13px; margin-bottom: 10px;")
+        card_layout.addWidget(version_label)
 
-        layout.addSpacing(10)
+        card_layout.addSpacing(10)
 
         # 用户名
-        username_layout = QHBoxLayout()
-        username_label = QLabel("用户名:")
-        username_label.setFixedWidth(80)
+        username_label = QLabel("👤 用户名")
+        username_label.setStyleSheet("font-weight: 600; color: #2c3e50; font-size: 13px;")
+        card_layout.addWidget(username_label)
+
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("请输入用户名")
         self.username_input.setText("admin")
-        self.username_input.setMinimumHeight(26)
-        username_layout.addWidget(username_label)
-        username_layout.addWidget(self.username_input)
-        layout.addLayout(username_layout)
+        self.username_input.setMinimumHeight(38)
+        self.username_input.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid #e1e4e8;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #667eea;
+            }
+        """)
+        card_layout.addWidget(self.username_input)
+
+        card_layout.addSpacing(5)
 
         # 密码
-        password_layout = QHBoxLayout()
-        password_label = QLabel("密码:")
-        password_label.setFixedWidth(80)
+        password_label = QLabel("🔒 密码")
+        password_label.setStyleSheet("font-weight: 600; color: #2c3e50; font-size: 13px;")
+        card_layout.addWidget(password_label)
+
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("请输入密码")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setMinimumHeight(26)
+        self.password_input.setMinimumHeight(38)
+        self.password_input.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid #e1e4e8;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #667eea;
+            }
+        """)
         self.password_input.returnPressed.connect(self.login)
-        password_layout.addWidget(password_label)
-        password_layout.addWidget(self.password_input)
-        layout.addLayout(password_layout)
+        card_layout.addWidget(self.password_input)
 
-        layout.addSpacing(10)
+        card_layout.addSpacing(15)
 
-        # 按钮
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        self.login_button = QPushButton("登录")
-        self.login_button.setFixedWidth(100)
+        # 登录按钮
+        self.login_button = QPushButton("登  录")
+        self.login_button.setMinimumHeight(42)
+        self.login_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                            stop:0 #667eea, stop:1 #764ba2);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 15px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                            stop:0 #5568d3, stop:1 #6a3f91);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                            stop:0 #4a5ab8, stop:1 #5d3780);
+            }
+        """)
         self.login_button.clicked.connect(self.login)
-        button_layout.addWidget(self.login_button)
-
-        self.cancel_button = QPushButton("取消")
-        self.cancel_button.setFixedWidth(100)
-        self.cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_button)
-
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
+        card_layout.addWidget(self.login_button)
 
         # 提示
-        hint_label = QLabel("默认账号: admin / admin123")
+        hint_label = QLabel("💡 默认账号: admin / admin123")
         hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hint_label.setStyleSheet("color: gray; font-size: 10px;")
-        layout.addWidget(hint_label)
+        hint_label.setStyleSheet("""
+            color: #95a5a6;
+            font-size: 12px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin-top: 5px;
+        """)
+        card_layout.addWidget(hint_label)
 
-        layout.addStretch()
+        layout.addWidget(card)
         self.setLayout(layout)
 
         self.username_input.setFocus()
