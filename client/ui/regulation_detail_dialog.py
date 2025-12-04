@@ -45,6 +45,14 @@ class RegulationDetailDialog(QDialog):
         """初始化UI"""
         self.setWindowTitle(f"法规详情 - {self.regulation.name}")
         self.setMinimumSize(900, 700)
+
+        # 设置窗口标志：启用最大化按钮
+        self.setWindowFlags(
+            Qt.WindowType.Dialog |
+            Qt.WindowType.WindowMaximizeButtonHint |
+            Qt.WindowType.WindowCloseButtonHint
+        )
+
         self.setModal(True)
 
         layout = QVBoxLayout()
