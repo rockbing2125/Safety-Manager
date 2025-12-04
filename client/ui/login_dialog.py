@@ -82,7 +82,7 @@ class LoginDialog(QDialog):
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("请输入用户名")
         self.username_input.setText("admin")
-        self.username_input.setMinimumHeight(38)
+        self.username_input.setMinimumHeight(36)
         self.username_input.setStyleSheet("""
             QLineEdit {
                 border: 2px solid #e1e4e8;
@@ -106,7 +106,7 @@ class LoginDialog(QDialog):
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("请输入密码")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setMinimumHeight(38)
+        self.password_input.setMinimumHeight(36)
         self.password_input.setStyleSheet("""
             QLineEdit {
                 border: 2px solid #e1e4e8;

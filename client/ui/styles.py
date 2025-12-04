@@ -137,10 +137,11 @@ QPushButton:focus {
 QLineEdit, QTextEdit {
     border: 2px solid #e1e4e8;
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     background-color: white;
     selection-background-color: #3498db;
     font-size: 13px;
+    min-height: 18px;
 }
 
 QLineEdit:hover, QTextEdit:hover {

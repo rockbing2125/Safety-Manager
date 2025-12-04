@@ -87,7 +87,7 @@ class FirstRunDialog(QDialog):
         self.db_path_input = QLineEdit()
         self.db_path_input.setPlaceholderText(r"例如: \\10.0.104.252\SafetyManager\regulations.db")
         self.db_path_input.setText(r"\\10.0.104.252\SafetyManager\regulations.db")
-        self.db_path_input.setMinimumHeight(24)  # 设置输入框高度
+        self.db_path_input.setMinimumHeight(28)  # 设置输入框高度
         shared_config_layout.addRow("数据库路径:", self.db_path_input)
 
         # 提示信息
