@@ -4,6 +4,7 @@ block_cipher = None
 
 import os
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files
 
 # 排除特定文件的函数
 def should_include(file_path):
@@ -19,6 +20,17 @@ def should_include(file_path):
             return False
     return True
 
+# 创建空的数据目录结构（不包含数据库文件）
+data_tree = []
+for subdir in ['documents', 'codes', 'parameter_images', 'databases', 'logs']:
+    data_dir = os.path.join('data', subdir)
+    if os.path.exists(data_dir):
+        # 对于 databases 目录，我们不包含任何文件，只创建目录结构
+        if subdir == 'databases':
+            continue  # 跳过，稍后单独添加数据库
+        else:
+            data_tree.append((data_dir, os.path.join('data', subdir)))
+
 a = Analysis(
     ['run.py'],
     pathex=[],
@@ -26,11 +38,14 @@ a = Analysis(
     datas=[
         # 包含分发版配置文件
         ('.env.dist', '.'),
-        # 只包含空的data目录结构，不包含用户数据和.env文件
-        ('data', 'data'),
+        # 不再使用 ('data', 'data')，改为单独指定每个子目录
+        # 明确包含数据库文件（自带法规数据） - 这是唯一包含数据库的地方
+        ('data/databases/regulations.db', 'data/databases'),
         ('client', 'client'),
         ('shared', 'shared'),
-    ],
+        # 包含 RDB 目录（Excel 数据源）
+        ('RDB', 'RDB'),
+    ] + data_tree,
     hiddenimports=[
         # PyQt6
         'PyQt6',

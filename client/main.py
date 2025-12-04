@@ -57,35 +57,59 @@ def main():
     try:
         print(">>> 步骤 2/5: 初始化数据库...")
         logger.info("正在初始化数据库...")
+
+        # 打包环境下，首次运行时从 _internal 复制数据库
+        from shared.config import ensure_database_exists
+        ensure_database_exists()
+
+        logger.info(f"数据库路径: {settings.SQLITE_DB_PATH}")
+        print(f">>> 数据库路径: {settings.SQLITE_DB_PATH}")
+        sys.stdout.flush()  # 强制刷新输出缓冲
         init_db()
         print(">>> 数据库初始化成功")
         logger.info("数据库初始化成功")
+        sys.stdout.flush()  # 强制刷新输出缓冲
     except Exception as e:
         logger.error(f"数据库初始化失败: {e}")
         print(f"!!! 数据库初始化失败: {e}")
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         print("\n按回车键退出...")
         input()
         return 1
 
     try:
         print(">>> 步骤 3/5: 创建 Qt 应用...")
+        logger.info("正在创建 Qt 应用...")
+        sys.stdout.flush()
         app = QApplication(sys.argv)
+        print(">>> QApplication 实例已创建")
+        sys.stdout.flush()
         app.setApplicationName(settings.APP_NAME)
+        print(f">>> 应用名称: {settings.APP_NAME}")
+        sys.stdout.flush()
         app.setApplicationVersion(settings.APP_VERSION)
+        print(f">>> 应用版本: {settings.APP_VERSION}")
+        sys.stdout.flush()
         app.setStyle("Fusion")
         print(">>> Qt 应用创建成功")
+        logger.info("Qt 应用创建成功")
+        sys.stdout.flush()
     except Exception as e:
         print(f"!!! Qt 应用创建失败: {e}")
+        logger.error(f"Qt 应用创建失败: {e}")
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         print("\n按回车键退出...")
         input()
         return 1
 
     try:
         print(">>> 步骤 4/5: 应用样式...")
+        logger.info("正在应用样式...")
+        sys.stdout.flush()
         # 应用样式表
         stylesheet = """
 QPushButton{background:#0078d4;color:white;border:none;padding:8px 16px;border-radius:4px;font-weight:bold;min-height:28px}
@@ -98,22 +122,32 @@ QTabBar::tab:selected{background:#0078d4;color:white}
     """
         app.setStyleSheet(stylesheet)
         print(">>> 样式应用成功")
+        logger.info("样式应用成功")
+        sys.stdout.flush()
     except Exception as e:
         print(f"!!! 样式应用失败: {e}")
+        logger.error(f"样式应用失败: {e}")
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         print("\n按回车键退出...")
         input()
         return 1
 
     try:
         print(">>> 步骤 5/5: 显示登录对话框...")
+        logger.info("正在创建登录对话框...")
+        sys.stdout.flush()
         login_dialog = LoginDialog()
         print(">>> 登录对话框已创建")
+        logger.info("登录对话框已创建")
+        sys.stdout.flush()
     except Exception as e:
         print(f"!!! 登录对话框创建失败: {e}")
+        logger.error(f"登录对话框创建失败: {e}")
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         print("\n按回车键退出...")
         input()
         return 1

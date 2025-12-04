@@ -58,6 +58,19 @@ if exist ".env" (
 )
 
 echo.
+echo [3.6/5] 验证数据库文件...
+if exist "data\databases\regulations.db" (
+    echo ✓ 检测到开发环境数据库
+    for %%F in ("data\databases\regulations.db") do (
+        echo   大小: %%~zF 字节
+        echo   这个数据库将被打包到程序中
+    )
+) else (
+    echo ⚠ 警告：未找到数据库文件
+    echo   打包的程序将从空数据库开始
+)
+
+echo.
 echo [4/5] 开始打包...
 echo 这可能需要几分钟时间，请耐心等待...
 echo 提示: 已启用控制台模式，可以查看详细错误信息
@@ -81,8 +94,6 @@ if exist "dist\SafetyManager\SafetyManager.exe" (
     echo 打包文件位置: dist\SafetyManager\
     echo 主程序: dist\SafetyManager\SafetyManager.exe
     echo.
-    echo 现在可以将整个 dist\SafetyManager\ 文件夹分发给用户
-    echo.
 ) else (
     echo ✗ 找不到可执行文件！
     echo 打包可能失败，请检查上面的错误信息
@@ -90,50 +101,39 @@ if exist "dist\SafetyManager\SafetyManager.exe" (
     exit /b 1
 )
 
+echo.
+echo [6/6] 验证数据库是否正确打包...
+if exist "dist\SafetyManager\data\databases\regulations.db" (
+    echo ✓ 数据库文件已打包
+    for %%F in ("dist\SafetyManager\data\databases\regulations.db") do (
+        echo   打包后大小: %%~zF 字节
+    )
+
+    REM 对比开发环境和打包后的文件大小
+    if exist "data\databases\regulations.db" (
+        for %%A in ("data\databases\regulations.db") do set dev_size=%%~zA
+        for %%B in ("dist\SafetyManager\data\databases\regulations.db") do set dist_size=%%~zB
+
+        if !dev_size! EQU !dist_size! (
+            echo ✓ 数据库大小一致，打包正确！
+        ) else (
+            echo ⚠ 警告：数据库大小不一致！
+            echo   开发环境: !dev_size! 字节
+            echo   打包后:   !dist_size! 字节
+            echo.
+            echo   建议运行 python compare_db.py 进行详细对比
+        )
+    )
+) else (
+    echo ✗ 数据库文件未打包！
+    echo   请检查 SafetyManager.spec 配置
+)
+
+echo.
 echo ============================================
 echo 打包完成！
 echo ============================================
 echo.
-
-REM 询问是否要同步开发环境数据库
-echo [可选] 同步开发环境数据库到打包目录
-echo ============================================
-if exist "data\databases\regulations.db" (
-    echo.
-    echo 检测到开发环境数据库: data\databases\regulations.db
-    for %%F in ("data\databases\regulations.db") do (
-        echo   大小: %%~zF 字节
-        echo   时间: %%~tF
-    )
-    echo.
-    set /p sync_db="是否要将开发环境的数据库复制到打包目录？(Y/N，默认N): "
-    if /i "!sync_db!"=="Y" (
-        echo.
-        echo [同步] 正在复制数据库...
-
-        REM 备份打包目录的旧数据库
-        if exist "dist\SafetyManager\data\databases\regulations.db" (
-            copy /Y "dist\SafetyManager\data\databases\regulations.db" "dist\SafetyManager\data\databases\regulations.db.bak" >nul 2>&1
-            echo ✓ 已备份原数据库为 regulations.db.bak
-        )
-
-        REM 复制开发数据库
-        copy /Y "data\databases\regulations.db" "dist\SafetyManager\data\databases\regulations.db" >nul
-        if !errorlevel!==0 (
-            echo ✓ 数据库同步成功！
-            echo   现在打包程序将使用开发环境的数据
-        ) else (
-            echo ✗ 数据库同步失败！
-        )
-        echo.
-    ) else (
-        echo [跳过] 将使用打包目录自带的数据库
-        echo.
-    )
-) else (
-    echo ⚠ 未找到开发环境数据库
-    echo.
-)
 
 echo ============================================
 echo 分发说明

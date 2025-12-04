@@ -2,25 +2,48 @@
 __pycache__/
 *.py[cod]
 *.so
+*.pyc
+*.pyo
 .Python
 build/
 dist/
 *.egg-info/
+*.spec.bak
 venv/
 ENV/
+env/
 
-# Project - Data directories
-data/databases/
+# PyInstaller
+*.spec.orig
+
+# Project - Data directories (排除用户数据，但保留目录结构)
+data/databases/*.db
+data/databases/*.sqlite
 data/logs/
 data/search_index/
 data/documents/
 data/codes/
+data/parameter_images/
 
-# Project - Files
-*.db
-*.sqlite
-.env
+# 保留空目录结构
+!data/databases/.gitkeep
+!data/logs/.gitkeep
+!data/search_index/.gitkeep
+!data/documents/.gitkeep
+!data/codes/.gitkeep
+!data/parameter_images/.gitkeep
+
+# Project - 临时和日志文件
 *.log
+*.log.*
+*.bak
+nul
+
+# 环境配置文件（保留模板）
+.env
+.env.local
+.env.production
+!.env.dist
 
 # 保留法规参数数据（Excel文件）
 !RDB/
@@ -30,3 +53,21 @@ data/codes/
 .vscode/
 .idea/
 .DS_Store
+*.swp
+*.swo
+
+# Claude Code 本地配置
+.claude/settings.local.json
+
+# Windows
+Thumbs.db
+desktop.ini
+bash.exe.stackdump
+
+# 测试和临时脚本
+test_*.py
+temp_*.py
+compare_db.py
+sync_db_to_dist.bat
+rebuild_quick.bat
+test_direct_run.bat

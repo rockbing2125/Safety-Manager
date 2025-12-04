@@ -13,10 +13,31 @@ def get_base_dir() -> Path:
     """获取程序根目录（支持打包后的环境）"""
     if getattr(sys, 'frozen', False):
         # 打包后的环境：使用可执行文件所在目录
-        return Path(sys.executable).parent
+        # PyInstaller 会将所有文件放在 _internal 目录，但数据应该在可执行文件同级的 data 目录
+        exe_dir = Path(sys.executable).parent
+        # 如果当前在 _internal 目录，返回父目录
+        if exe_dir.name == '_internal':
+            return exe_dir.parent
+        return exe_dir
     else:
         # 开发环境：使用项目根目录
         return Path(__file__).resolve().parent.parent
+
+
+def get_resource_path(relative_path: str) -> Path:
+    """获取资源文件路径（支持打包环境）
+
+    在打包环境下，资源文件在 _MEIPASS 目录（即 _internal）
+    在开发环境下，资源文件在项目根目录
+    """
+    if getattr(sys, 'frozen', False):
+        # 打包后的环境：使用 PyInstaller 的临时目录
+        base_path = Path(sys._MEIPASS)
+    else:
+        # 开发环境：使用项目根目录
+        base_path = Path(__file__).resolve().parent.parent
+
+    return base_path / relative_path
 
 
 # 项目根目录
@@ -31,6 +52,31 @@ DATABASES_DIR = DATA_DIR / "databases"
 # 确保目录存在
 for directory in [DATA_DIR, DOCUMENTS_DIR, CODES_DIR, DATABASES_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
+
+
+def ensure_database_exists():
+    """确保数据库文件存在（首次运行时从打包资源复制）"""
+    if not getattr(sys, 'frozen', False):
+        # 开发环境不需要复制
+        return
+
+    # 打包环境：检查数据库是否存在
+    target_db = DATABASES_DIR / "regulations.db"
+
+    if target_db.exists():
+        # 数据库已存在，不覆盖用户数据
+        return
+
+    # 数据库不存在，从打包资源复制
+    source_db = get_resource_path("data/databases/regulations.db")
+
+    if source_db.exists():
+        import shutil
+        # 确保目标目录存在
+        target_db.parent.mkdir(parents=True, exist_ok=True)
+        # 复制数据库
+        shutil.copy2(source_db, target_db)
+        print(f"✓ 已从打包资源复制数据库到: {target_db}")
 
 
 class Settings(BaseSettings):
@@ -130,7 +176,8 @@ class Settings(BaseSettings):
 
     class Config:
         # .env文件是可选的，不存在时使用默认配置
-        env_file = ".env"
+        # 打包后从可执行文件目录读取，开发环境从项目根目录读取
+        env_file = str(BASE_DIR / ".env") if BASE_DIR else ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
         # 允许.env文件不存在
