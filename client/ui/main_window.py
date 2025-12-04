@@ -112,6 +112,7 @@ class MainWindow(QMainWindow):
         toolbar.addAction(QAction("新增法规", self, triggered=self.add_regulation))
         toolbar.addAction(QAction("编辑法规", self, triggered=self.edit_regulation))
         toolbar.addAction(QAction("删除法规", self, triggered=self.delete_regulation))
+        toolbar.addAction(QAction("代码管理", self, triggered=self.manage_codes))
         toolbar.addSeparator()
         toolbar.addAction(QAction("刷新", self, triggered=self.load_regulations))
         toolbar.addSeparator()
@@ -374,6 +375,12 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # 推送成功后，刷新版本检查
             self.check_for_updates()
+
+    def manage_codes(self):
+        """代码管理"""
+        from .code_manager_dialog import CodeManagerDialog
+        dialog = CodeManagerDialog(self, user_id=self.current_user.id)
+        dialog.exec()
 
     def export_regulations(self):
         """导出法规数据"""

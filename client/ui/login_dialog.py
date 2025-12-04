@@ -32,11 +32,11 @@ class LoginDialog(QDialog):
         self.setFixedSize(480, 520)
         self.setModal(True)
 
-        # 设置对话框样式
+        # 设置对话框样式 - 改用清新的蓝绿色渐变
         self.setStyleSheet("""
             QDialog {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                            stop:0 #667eea, stop:1 #764ba2);
+                                            stop:0 #11998e, stop:1 #38ef7d);
             }
         """)
 
@@ -91,7 +91,7 @@ class LoginDialog(QDialog):
                 font-size: 14px;
             }
             QLineEdit:focus {
-                border: 2px solid #667eea;
+                border: 2px solid #11998e;
             }
         """)
         card_layout.addWidget(self.username_input)
@@ -115,7 +115,7 @@ class LoginDialog(QDialog):
                 font-size: 14px;
             }
             QLineEdit:focus {
-                border: 2px solid #667eea;
+                border: 2px solid #11998e;
             }
         """)
         self.password_input.returnPressed.connect(self.login)
@@ -129,7 +129,7 @@ class LoginDialog(QDialog):
         self.login_button.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                            stop:0 #667eea, stop:1 #764ba2);
+                                            stop:0 #11998e, stop:1 #38ef7d);
                 color: white;
                 border: none;
                 border-radius: 8px;
@@ -138,11 +138,11 @@ class LoginDialog(QDialog):
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                            stop:0 #5568d3, stop:1 #6a3f91);
+                                            stop:0 #0f8278, stop:1 #2dd96c);
             }
             QPushButton:pressed {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                            stop:0 #4a5ab8, stop:1 #5d3780);
+                                            stop:0 #0d6b63, stop:1 #25c25a);
             }
         """)
         self.login_button.clicked.connect(self.login)
@@ -151,10 +151,11 @@ class LoginDialog(QDialog):
         # 提示
         hint_label = QLabel("💡 默认账号: admin / admin123")
         hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint_label.setMinimumHeight(36)  # 确保高度足够
         hint_label.setStyleSheet("""
             color: #95a5a6;
             font-size: 12px;
-            padding: 8px;
+            padding: 10px 8px;
             background-color: #f8f9fa;
             border-radius: 6px;
             margin-top: 5px;
