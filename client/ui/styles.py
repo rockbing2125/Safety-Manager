@@ -150,7 +150,24 @@ QLineEdit:hover, QTextEdit:hover {
 
 QLineEdit:focus, QTextEdit:focus {
     border: 2px solid #3498db;
-    background-color: #f8fbff;
+    background-color: #ffffff;
+}
+
+QLineEdit[readOnly="true"], QTextEdit[readOnly="true"] {
+    background-color: rgba(236, 240, 241, 0.3);
+    color: #7f8c8d;
+}
+
+/* 优化输入法相关显示 */
+QLineEdit::preedit-area {
+    background-color: transparent;
+    border: none;
+}
+
+QWidget[role="ime-candidate"] {
+    background-color: white;
+    border: 1px solid #e1e4e8;
+    border-radius: 4px;
 }
 
 QLineEdit:disabled, QTextEdit:disabled {
