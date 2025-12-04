@@ -89,9 +89,11 @@ class LoginDialog(QDialog):
                 border-radius: 8px;
                 padding: 8px 14px;
                 font-size: 14px;
+                background-color: transparent;
             }
             QLineEdit:focus {
                 border: 2px solid #11998e;
+                background-color: #f8fbff;
             }
         """)
         card_layout.addWidget(self.username_input)
@@ -113,9 +115,11 @@ class LoginDialog(QDialog):
                 border-radius: 8px;
                 padding: 8px 14px;
                 font-size: 14px;
+                background-color: transparent;
             }
             QLineEdit:focus {
                 border: 2px solid #11998e;
+                background-color: #f8fbff;
             }
         """)
         self.password_input.returnPressed.connect(self.login)

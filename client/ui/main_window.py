@@ -76,37 +76,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{settings.APP_NAME} v{settings.APP_VERSION}")
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
-        
-        menubar = self.menuBar()
-        file_menu = menubar.addMenu("文件")
-        refresh = QAction("刷新", self)
-        refresh.triggered.connect(self.load_regulations)
-        file_menu.addAction(refresh)
 
-        file_menu.addSeparator()
-
-        # 导入/导出菜单
-        export_action = QAction("导出法规数据...", self)
-        export_action.triggered.connect(self.export_regulations)
-        file_menu.addAction(export_action)
-
-        import_action = QAction("导入法规数据...", self)
-        import_action.triggered.connect(self.import_regulations)
-        file_menu.addAction(import_action)
-        
-        reg_menu = menubar.addMenu("法规")
-        add = QAction("新增", self)
-        add.triggered.connect(self.add_regulation)
-        reg_menu.addAction(add)
-
-        edit = QAction("编辑", self)
-        edit.triggered.connect(self.edit_regulation)
-        reg_menu.addAction(edit)
-
-        delete = QAction("删除", self)
-        delete.triggered.connect(self.delete_regulation)
-        reg_menu.addAction(delete)
-        
+        # 工具栏
         toolbar = QToolBar()
         self.addToolBar(toolbar)
         toolbar.addAction(QAction("新增法规", self, triggered=self.add_regulation))
@@ -131,13 +102,16 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(12)
 
-        # 搜索栏 - 改进样式
+        # 搜索栏 - 改进样式（保持白色背景以便透明输入框可读）
         search_widget = QWidget()
         search_widget.setStyleSheet("""
             QWidget {
                 background-color: white;
                 border-radius: 8px;
                 padding: 8px;
+            }
+            QLineEdit {
+                background-color: white;
             }
         """)
         search = QHBoxLayout(search_widget)
