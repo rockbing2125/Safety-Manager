@@ -174,6 +174,10 @@ class RegulationDetailDialog(QDialog):
         self.doc_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.doc_table.doubleClicked.connect(self.view_document)
 
+        # 设置行高
+        self.doc_table.verticalHeader().setDefaultSectionSize(40)
+        self.doc_table.verticalHeader().setMinimumSectionSize(40)
+
         header = self.doc_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
 
@@ -211,6 +215,10 @@ class RegulationDetailDialog(QDialog):
         self.code_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.code_table.doubleClicked.connect(self.view_code)
 
+        # 设置行高
+        self.code_table.verticalHeader().setDefaultSectionSize(40)
+        self.code_table.verticalHeader().setMinimumSectionSize(40)
+
         header = self.code_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
 
@@ -232,6 +240,10 @@ class RegulationDetailDialog(QDialog):
         ])
         self.history_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.history_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+
+        # 设置行高
+        self.history_table.verticalHeader().setDefaultSectionSize(40)
+        self.history_table.verticalHeader().setMinimumSectionSize(40)
 
         header = self.history_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
