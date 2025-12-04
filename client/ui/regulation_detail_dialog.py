@@ -453,7 +453,7 @@ class RegulationDetailDialog(QDialog):
         self.param_table = QTableWidget()
         self.param_table.setColumnCount(9)
         self.param_table.setHorizontalHeaderLabels([
-            "类别", "参数", "默认值", "上限", "下限", "单位", "系数", "协议位", "备注"
+            "类别", "参数", "默认值", "下限", "上限", "单位", "系数", "协议位", "备注"
         ])
 
         # 允许单击编辑
@@ -477,8 +477,8 @@ class RegulationDetailDialog(QDialog):
         self.param_table.setColumnWidth(0, 120)  # 类别
         self.param_table.setColumnWidth(1, 180)  # 参数
         self.param_table.setColumnWidth(2, 100)  # 默认值
-        self.param_table.setColumnWidth(3, 100)  # 上限
-        self.param_table.setColumnWidth(4, 100)  # 下限
+        self.param_table.setColumnWidth(3, 100)  # 下限
+        self.param_table.setColumnWidth(4, 100)  # 上限
         self.param_table.setColumnWidth(5, 80)   # 单位
         self.param_table.setColumnWidth(6, 80)   # 系数
         self.param_table.setColumnWidth(7, 100)  # 协议位
@@ -811,8 +811,8 @@ class RegulationDetailDialog(QDialog):
                 category = get_cell_value(row, 0)
                 parameter = get_cell_value(row, 1)
                 default_val = get_cell_value(row, 2)
-                upper = get_cell_value(row, 3)
-                lower = get_cell_value(row, 4)
+                lower = get_cell_value(row, 3)
+                upper = get_cell_value(row, 4)
                 unit = get_cell_value(row, 5)
                 coefficient = get_cell_value(row, 6)
                 protocol_bit = get_cell_value(row, 7)
@@ -918,8 +918,8 @@ class RegulationDetailDialog(QDialog):
                     self.param_table.setItem(row, 0, create_table_item(param.category, row, 0))
                     self.param_table.setItem(row, 1, create_table_item(param.parameter_name, row, 1))
                     self.param_table.setItem(row, 2, create_table_item(param.default_value, row, 2))
-                    self.param_table.setItem(row, 3, create_table_item(param.upper_limit, row, 3))
-                    self.param_table.setItem(row, 4, create_table_item(param.lower_limit, row, 4))
+                    self.param_table.setItem(row, 3, create_table_item(param.lower_limit, row, 3))
+                    self.param_table.setItem(row, 4, create_table_item(param.upper_limit, row, 4))
                     self.param_table.setItem(row, 5, create_table_item(param.unit, row, 5))
                     self.param_table.setItem(row, 6, create_table_item(param.coefficient, row, 6))
                     self.param_table.setItem(row, 7, create_table_item(param.protocol_bit, row, 7))

@@ -232,15 +232,21 @@ QTableWidget {
 QTableWidget::item {
     padding: 12px 8px;
     border: none;
+    outline: none;
 }
 
 QTableWidget::item:selected {
-    background-color: #3498db;
-    color: white;
+    background-color: #e3f2fd;
+    color: #2c3e50;
 }
 
 QTableWidget::item:hover {
     background-color: #e3f2fd;
+}
+
+QTableWidget::item:focus {
+    background-color: white;
+    outline: none;
 }
 
 /* 表格内的编辑器 - 使用白色背景，无边框实现无缝编辑 */
@@ -248,6 +254,11 @@ QTableWidget QLineEdit {
     background-color: white;
     border: none;
     padding: 4px 8px;
+}
+
+QTableWidget QLineEdit:hover {
+    background-color: white;
+    border: none;
 }
 
 QTableWidget QLineEdit:focus {
