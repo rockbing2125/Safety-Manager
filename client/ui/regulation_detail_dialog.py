@@ -453,10 +453,27 @@ class RegulationDetailDialog(QDialog):
         # 连接双击事件（用于放大查看图片）
         self.param_table.itemDoubleClicked.connect(self.on_param_cell_double_clicked)
 
-        # 设置列宽
+        # 设置行高自动调整
+        self.param_table.verticalHeader().setDefaultSectionSize(36)  # 设置默认行高
+        self.param_table.verticalHeader().setMinimumSectionSize(36)  # 设置最小行高
+
+        # 设置列宽 - 允许用户手动调整所有列
         header = self.param_table.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # 所有列都可手动调整
+
+        # 设置初始列宽
+        self.param_table.setColumnWidth(0, 120)  # 类别
+        self.param_table.setColumnWidth(1, 180)  # 参数
+        self.param_table.setColumnWidth(2, 100)  # 默认值
+        self.param_table.setColumnWidth(3, 100)  # 上限
+        self.param_table.setColumnWidth(4, 100)  # 下限
+        self.param_table.setColumnWidth(5, 80)   # 单位
+        self.param_table.setColumnWidth(6, 80)   # 系数
+        self.param_table.setColumnWidth(7, 100)  # 协议位
+        self.param_table.setColumnWidth(8, 150)  # 备注
+
+        # 让最后一列（备注）自动拉伸填充剩余空间
+        header.setStretchLastSection(True)
 
         layout.addWidget(self.param_table)
 
@@ -682,7 +699,7 @@ class RegulationDetailDialog(QDialog):
                 if has_image:
                     self.param_table.setRowHeight(row_idx, 140)  # 增大行高以显示更大的图片
                 else:
-                    self.param_table.setRowHeight(row_idx, 30)
+                    self.param_table.setRowHeight(row_idx, 40)  # 确保文字不被裁剪
 
                 for col_idx, value in enumerate(row_data):
                     # 检查该位置是否有图片
@@ -880,9 +897,11 @@ class RegulationDetailDialog(QDialog):
                                    param.coefficient, param.protocol_bit, param.remark]
                     )
 
-                    # 如果该行有图片，设置更大的行高
+                    # 设置行高
                     if has_image:
-                        self.param_table.setRowHeight(row, 140)
+                        self.param_table.setRowHeight(row, 140)  # 有图片时使用更大的行高
+                    else:
+                        self.param_table.setRowHeight(row, 40)  # 确保文字不被裁剪
 
                     self.param_table.setItem(row, 0, create_table_item(param.category, row, 0))
                     self.param_table.setItem(row, 1, create_table_item(param.parameter_name, row, 1))

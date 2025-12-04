@@ -29,7 +29,7 @@ class LoginDialog(QDialog):
     def init_ui(self):
         """初始化UI"""
         self.setWindowTitle(f"{settings.APP_NAME} - 登录")
-        self.setFixedSize(480, 420)
+        self.setFixedSize(480, 520)
         self.setModal(True)
 
         # 设置对话框样式
