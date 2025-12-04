@@ -32,27 +32,12 @@ class CodeManagerDialog(QDialog):
     def init_ui(self):
         """初始化UI"""
         self.setWindowTitle("代码文件管理")
-        self.setMinimumSize(1000, 600)
+        self.setMinimumSize(900, 600)
         self.setModal(True)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
-
-        # 筛选区域
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("筛选法规:"))
-
-        self.regulation_filter = QComboBox()
-        self.regulation_filter.addItem("全部法规", None)
-        regulations = self.regulation_service.list_regulations()
-        for reg in regulations:
-            self.regulation_filter.addItem(f"{reg.code} - {reg.name}", reg.id)
-        self.regulation_filter.currentIndexChanged.connect(self.load_codes)
-        filter_layout.addWidget(self.regulation_filter)
-        filter_layout.addStretch()
-
-        layout.addLayout(filter_layout)
 
         # 工具栏
         toolbar = QHBoxLayout()
@@ -74,9 +59,9 @@ class CodeManagerDialog(QDialog):
 
         # 代码列表
         self.code_table = QTableWidget()
-        self.code_table.setColumnCount(6)
+        self.code_table.setColumnCount(5)
         self.code_table.setHorizontalHeaderLabels([
-            "ID", "所属法规", "文件名", "版本", "说明", "创建时间"
+            "ID", "文件名", "版本", "说明", "创建时间"
         ])
         self.code_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.code_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -90,10 +75,9 @@ class CodeManagerDialog(QDialog):
         header = self.code_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.code_table.setColumnWidth(0, 60)   # ID
-        self.code_table.setColumnWidth(1, 200)  # 所属法规
-        self.code_table.setColumnWidth(2, 200)  # 文件名
-        self.code_table.setColumnWidth(3, 100)  # 版本
-        self.code_table.setColumnWidth(4, 250)  # 说明
+        self.code_table.setColumnWidth(1, 250)  # 文件名
+        self.code_table.setColumnWidth(2, 100)  # 版本
+        self.code_table.setColumnWidth(3, 300)  # 说明
         header.setStretchLastSection(True)      # 创建时间
 
         layout.addWidget(self.code_table)
@@ -113,35 +97,20 @@ class CodeManagerDialog(QDialog):
 
     def load_codes(self):
         """加载代码列表"""
-        regulation_id = self.regulation_filter.currentData()
-
-        if regulation_id:
-            codes = self.db.query(CodeFile).filter(
-                CodeFile.regulation_id == regulation_id
-            ).order_by(CodeFile.created_at.desc()).all()
-        else:
-            codes = self.db.query(CodeFile).order_by(
-                CodeFile.created_at.desc()
-            ).all()
+        codes = self.db.query(CodeFile).order_by(
+            CodeFile.created_at.desc()
+        ).all()
 
         self.code_table.setRowCount(len(codes))
 
         for row, code in enumerate(codes):
             self.code_table.setItem(row, 0, QTableWidgetItem(str(code.id)))
-
-            # 获取法规名称
-            regulation = self.db.query(Regulation).filter(
-                Regulation.id == code.regulation_id
-            ).first()
-            reg_name = f"{regulation.code}" if regulation else "未知"
-            self.code_table.setItem(row, 1, QTableWidgetItem(reg_name))
-
-            self.code_table.setItem(row, 2, QTableWidgetItem(code.file_name))
-            self.code_table.setItem(row, 3, QTableWidgetItem(code.version or ""))
-            self.code_table.setItem(row, 4, QTableWidgetItem(code.description or ""))
+            self.code_table.setItem(row, 1, QTableWidgetItem(code.file_name))
+            self.code_table.setItem(row, 2, QTableWidgetItem(code.version or ""))
+            self.code_table.setItem(row, 3, QTableWidgetItem(code.description or ""))
 
             time_str = code.created_at.strftime("%Y-%m-%d %H:%M") if code.created_at else ""
-            self.code_table.setItem(row, 5, QTableWidgetItem(time_str))
+            self.code_table.setItem(row, 4, QTableWidgetItem(time_str))
 
     def upload_code(self):
         """上传代码文件"""
