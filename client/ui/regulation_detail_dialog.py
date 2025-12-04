@@ -431,9 +431,9 @@ class RegulationDetailDialog(QDialog):
 
         # 参数表格
         self.param_table = QTableWidget()
-        self.param_table.setColumnCount(8)
+        self.param_table.setColumnCount(9)
         self.param_table.setHorizontalHeaderLabels([
-            "类别", "参数", "默认值", "上限", "下限", "单位", "系数", "备注"
+            "类别", "参数", "默认值", "上限", "下限", "单位", "系数", "协议位", "备注"
         ])
 
         # 允许单击编辑
@@ -597,7 +597,7 @@ class RegulationDetailDialog(QDialog):
                                 from_anchor = img.anchor._from
                                 row = from_anchor.row - 1
                                 col = from_anchor.col
-                                if row >= 0 and col < 8:
+                                if row >= 0 and col < 9:
                                     image_map[(row, col)] = pixmap
                                     print(f"[_images] Extracted image at position ({row}, {col})")
                     except Exception as e:
@@ -609,7 +609,7 @@ class RegulationDetailDialog(QDialog):
             all_rows = []
             row_image_info = {}  # {(row, col): image_id}
 
-            for row_idx, excel_row in enumerate(ws.iter_rows(min_row=2, max_col=8)):
+            for row_idx, excel_row in enumerate(ws.iter_rows(min_row=2, max_col=9)):
                 if not excel_row:
                     continue
 
@@ -623,7 +623,7 @@ class RegulationDetailDialog(QDialog):
                     value = cell.value
 
                     # 打印单元格信息用于调试
-                    if value is not None and col_idx < 8:
+                    if value is not None and col_idx < 9:
                         print(f"Cell({row_idx+2},{col_idx+1}): value={value}, type={type(value)}, data_type={cell.data_type if hasattr(cell, 'data_type') else 'N/A'}")
 
                     # 检查是否是公式（data_type=='f'表示formula）
@@ -670,7 +670,7 @@ class RegulationDetailDialog(QDialog):
 
             for row_idx, row_data in enumerate(all_rows):
                 # 设置行高（如果该行有图片，设置更大的行高）
-                has_image = any((row_idx, col) in image_map for col in range(8))
+                has_image = any((row_idx, col) in image_map for col in range(9))
                 if has_image:
                     self.param_table.setRowHeight(row_idx, 140)  # 增大行高以显示更大的图片
                 else:
@@ -778,7 +778,8 @@ class RegulationDetailDialog(QDialog):
                 lower = get_cell_value(row, 4)
                 unit = get_cell_value(row, 5)
                 coefficient = get_cell_value(row, 6)
-                remark = get_cell_value(row, 7)
+                protocol_bit = get_cell_value(row, 7)
+                remark = get_cell_value(row, 8)
 
                 param = RegulationParameter(
                     regulation_id=self.regulation_id,
@@ -789,6 +790,7 @@ class RegulationDetailDialog(QDialog):
                     lower_limit=lower,
                     unit=unit,
                     coefficient=coefficient,
+                    protocol_bit=protocol_bit,
                     remark=remark,
                     row_order=row
                 )
@@ -867,7 +869,7 @@ class RegulationDetailDialog(QDialog):
                         val and isinstance(val, str) and val.startswith("IMAGE:")
                         for val in [param.category, param.parameter_name, param.default_value,
                                    param.upper_limit, param.lower_limit, param.unit,
-                                   param.coefficient, param.remark]
+                                   param.coefficient, param.protocol_bit, param.remark]
                     )
 
                     # 如果该行有图片，设置更大的行高
@@ -881,7 +883,8 @@ class RegulationDetailDialog(QDialog):
                     self.param_table.setItem(row, 4, create_table_item(param.lower_limit, row, 4))
                     self.param_table.setItem(row, 5, create_table_item(param.unit, row, 5))
                     self.param_table.setItem(row, 6, create_table_item(param.coefficient, row, 6))
-                    self.param_table.setItem(row, 7, create_table_item(param.remark, row, 7))
+                    self.param_table.setItem(row, 7, create_table_item(param.protocol_bit, row, 7))
+                    self.param_table.setItem(row, 8, create_table_item(param.remark, row, 8))
 
                 self.apply_category_merge()
 

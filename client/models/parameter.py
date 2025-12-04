@@ -26,6 +26,7 @@ class RegulationParameter(Base):
     lower_limit = Column(String(100))
     unit = Column(String(50))
     coefficient = Column(String(50))  # 系数
+    protocol_bit = Column(String(100))  # 协议位
     remark = Column(Text)
     remark_image = Column(LargeBinary)
     row_order = Column(Integer, default=0)
