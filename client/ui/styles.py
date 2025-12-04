@@ -243,6 +243,18 @@ QTableWidget::item:hover {
     background-color: #e3f2fd;
 }
 
+/* 表格内的编辑器 - 使用白色背景，无边框实现无缝编辑 */
+QTableWidget QLineEdit {
+    background-color: white;
+    border: none;
+    padding: 4px 8px;
+}
+
+QTableWidget QLineEdit:focus {
+    background-color: white;
+    border: none;
+}
+
 QHeaderView::section {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                 stop:0 #34495e, stop:1 #2c3e50);
