@@ -40,6 +40,51 @@ if errorlevel 1 (
 
 echo.
 echo [3/5] 清理旧的构建文件...
+
+REM 在清空 dist 目录前，检查并备份可能的用户数据
+if exist "dist\SafetyManager\data\databases\regulations.db" (
+    echo.
+    echo ⚠ 警告：检测到 dist 目录中存在数据库文件！
+    echo   这可能包含你在打包程序中编辑的数据。
+    echo.
+
+    REM 获取文件大小和修改时间
+    for %%F in ("dist\SafetyManager\data\databases\regulations.db") do (
+        set dist_db_size=%%~zF
+        set dist_db_time=%%~tF
+    )
+    for %%F in ("data\databases\regulations.db") do (
+        set dev_db_size=%%~zF
+        set dev_db_time=%%~tF
+    )
+
+    echo   dist 数据库: !dist_db_size! 字节, 修改时间: !dist_db_time!
+    echo   开发数据库: !dev_db_size! 字节, 修改时间: !dev_db_time!
+    echo.
+    echo   建议操作：
+    echo   1. 如果你刚才在 dist 程序中编辑了数据，请先按 Ctrl+C 取消
+    echo   2. 手动复制 dist\SafetyManager\data\databases\regulations.db
+    echo   3. 覆盖到 data\databases\regulations.db
+    echo   4. 然后重新运行此脚本
+    echo.
+
+    REM 创建自动备份
+    if not exist "backup" mkdir backup
+    set backup_name=backup\regulations_dist_%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%.db
+    set backup_name=!backup_name: =0!
+    copy "dist\SafetyManager\data\databases\regulations.db" "!backup_name!" >nul
+    echo ✓ 已自动备份到: !backup_name!
+    echo.
+
+    choice /C YN /M "是否继续清空 dist 目录"
+    if errorlevel 2 (
+        echo.
+        echo 已取消打包。请先处理数据库文件。
+        pause
+        exit /b 0
+    )
+)
+
 if exist "build" (
     rmdir /s /q "build"
     echo ✓ 已删除 build 目录
@@ -58,15 +103,155 @@ if exist ".env" (
 )
 
 echo.
-echo [3.6/5] 验证数据库文件...
+echo [3.6/5] 验证数据库配置...
+
+REM 检查是否配置了网络数据库
+set "network_db_path="
+if exist ".env" (
+    for /f "usebackq tokens=1,2 delims==" %%a in (".env") do (
+        if "%%a"=="DATABASE_PATH" set "network_db_path=%%b"
+    )
+)
+
+if defined network_db_path (
+    echo ⚠ 检测到网络数据库配置！
+    echo   .env 配置: DATABASE_PATH=%network_db_path%
+    echo.
+    echo   ⚠️ 重要提醒：
+    echo   1. 启动程序.pyw使用的是网络数据库
+    echo   2. 打包将使用本地数据库: data\databases\regulations.db
+    echo   3. 如果你在启动程序.pyw中编辑了数据，需要先同步！
+    echo.
+
+    REM 检查网络数据库是否可访问
+    if exist "%network_db_path%" (
+        echo ✓ 网络数据库可访问
+
+        REM 对比网络和本地数据库
+        echo.
+        echo 网络数据库：
+        for %%F in ("%network_db_path%") do (
+            set network_size=%%~zF
+            echo   大小: %%~zF 字节
+            echo   修改时间: %%~tF
+        )
+        echo.
+        echo 本地数据库：
+        if exist "data\databases\regulations.db" (
+            for %%F in ("data\databases\regulations.db") do (
+                set local_size=%%~zF
+                echo   大小: %%~zF 字节
+                echo   修改时间: %%~tF
+            )
+        ) else (
+            echo   ✗ 不存在
+            set local_size=0
+        )
+        echo.
+
+        REM 对比数据库内容
+        echo 正在对比数据库内容...
+        python -c "import sqlite3; try: n_conn = sqlite3.connect(r'%network_db_path%'); l_conn = sqlite3.connect(r'data\databases\regulations.db'); n_cur = n_conn.cursor(); l_cur = l_conn.cursor(); n_cur.execute('SELECT COUNT(*) FROM regulations'); l_cur.execute('SELECT COUNT(*) FROM regulations'); n_count = n_cur.fetchone()[0]; l_count = l_cur.fetchone()[0]; print(f'  网络数据库法规数: {n_count}'); print(f'  本地数据库法规数: {l_count}'); diff = n_count - l_count; print(f'  差异: {diff:+d} 条法规'); n_conn.close(); l_conn.close(); exit(0 if diff == 0 else 1); except: exit(2)" 2>nul
+        set db_compare_result=!errorlevel!
+
+        echo.
+        echo ══════════════════════════════════════
+        echo  打包选项：
+        echo  [S] 同步网络数据库到本地后打包（推荐）
+        echo  [C] 继续使用当前本地数据库打包
+        echo  [N] 取消打包
+        echo ══════════════════════════════════════
+        echo.
+
+        REM 如果数据库有差异，默认建议同步
+        if !db_compare_result! NEQ 0 (
+            echo ⚠ 网络和本地数据库不一致，强烈建议同步！
+            echo.
+        )
+
+        choice /C SCN /M "请选择"
+        set sync_choice=!errorlevel!
+
+        if !sync_choice!==3 (
+            echo.
+            echo 已取消打包
+            pause
+            exit /b 0
+        )
+
+        if !sync_choice!==1 (
+            echo.
+            echo [开始同步网络数据库到本地]
+            echo.
+
+            REM 备份当前本地数据库
+            if exist "data\databases\regulations.db" (
+                if not exist "backup" mkdir backup
+                set backup_name=backup\regulations_before_sync_%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%.db
+                set backup_name=!backup_name: =0!
+                copy "data\databases\regulations.db" "!backup_name!" >nul
+                echo ✓ 已备份本地数据库到: !backup_name!
+            )
+
+            REM 确保目标目录存在
+            if not exist "data\databases" mkdir "data\databases"
+
+            REM 从网络复制到本地
+            echo 正在从网络同步...
+            copy "%network_db_path%" "data\databases\regulations.db" >nul
+
+            if errorlevel 1 (
+                echo ✗ 同步失败！无法从网络复制数据库
+                echo.
+                pause
+                exit /b 1
+            )
+
+            echo ✓ 同步成功！
+            echo.
+            echo 已同步网络数据库到本地
+            for %%F in ("data\databases\regulations.db") do (
+                echo   本地数据库新大小: %%~zF 字节
+            )
+            echo.
+            echo 继续打包...
+            echo.
+        ) else (
+            echo.
+            echo ⚠ 继续使用当前本地数据库打包
+            echo   注意：网络数据库的更新将不会包含在打包程序中
+            echo.
+        )
+    ) else (
+        echo ✗ 网络数据库当前不可访问: %network_db_path%
+        echo.
+        echo   可能的原因：
+        echo   1. 网络连接断开
+        echo   2. 共享服务器离线
+        echo   3. 没有访问权限
+        echo.
+        echo   将使用本地数据库继续打包
+        echo.
+
+        choice /C YN /M "是否继续打包"
+        if errorlevel 2 (
+            echo.
+            echo 已取消打包
+            pause
+            exit /b 0
+        )
+    )
+)
+
 if exist "data\databases\regulations.db" (
-    echo ✓ 检测到开发环境数据库
+    echo ✓ 检测到本地数据库
     for %%F in ("data\databases\regulations.db") do (
         echo   大小: %%~zF 字节
+        echo   修改时间: %%~tF
         echo   这个数据库将被打包到程序中
     )
 ) else (
-    echo ⚠ 警告：未找到数据库文件
+    echo ⚠ 警告：未找到本地数据库文件
     echo   打包的程序将从空数据库开始
 )
 

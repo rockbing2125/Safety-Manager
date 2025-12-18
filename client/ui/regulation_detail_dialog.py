@@ -441,6 +441,10 @@ class RegulationDetailDialog(QDialog):
         delete_row_btn.clicked.connect(self.delete_parameter_row)
         toolbar_layout.addWidget(delete_row_btn)
 
+        generate_code_btn = QPushButton("参数代码合成")
+        generate_code_btn.clicked.connect(self.generate_c_code_from_regulation)
+        toolbar_layout.addWidget(generate_code_btn)
+
         toolbar_layout.addStretch()
 
         save_btn = QPushButton("保存参数")
@@ -482,10 +486,13 @@ class RegulationDetailDialog(QDialog):
         self.param_table.setColumnWidth(5, 80)   # 单位
         self.param_table.setColumnWidth(6, 80)   # 系数
         self.param_table.setColumnWidth(7, 100)  # 协议位
-        self.param_table.setColumnWidth(8, 150)  # 备注
+        self.param_table.setColumnWidth(8, 350)  # 备注 - 增加宽度
 
         # 让最后一列（备注）自动拉伸填充剩余空间
         header.setStretchLastSection(True)
+
+        # 设置表格文本自动换行
+        self.param_table.setWordWrap(True)
 
         layout.addWidget(self.param_table)
 
@@ -594,6 +601,7 @@ class RegulationDetailDialog(QDialog):
             from PyQt6.QtCore import QSize
             import zipfile
             import re
+            import xml.etree.ElementTree as ET
 
             wb = openpyxl.load_workbook(file_path)
             ws = wb.active
@@ -604,24 +612,96 @@ class RegulationDetailDialog(QDialog):
 
             # 提取Excel中的图片
             image_map = {}  # 存储图片位置映射 {(row, col): QPixmap}
-            dispimg_id_map = {}  # 存储DISPIMG ID到图片的映射 {id: QPixmap}
+            dispimg_id_map = {}  # 存储DISPIMG ID到图片的映射 {image_id: QPixmap}
 
-            # 方法1: 从ZIP包中提取所有媒体文件（适用于DISPIMG）
+            # 方法1: 解析DISPIMG图片（适用于Excel 365和WPS的"在单元格中插入图片"功能）
             try:
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                    # 查找所有图片文件
+                    # 步骤1: 从xl/media/提取所有图片文件到内存
+                    media_files = {}  # {filename: pixmap}
                     for file_name in zip_ref.namelist():
-                        if file_name.startswith('xl/media/'):
-                            # 提取文件名中的ID或索引
+                        if file_name.startswith('xl/media/') and not file_name.endswith('/'):
                             image_data = zip_ref.read(file_name)
                             pixmap = QPixmap()
                             if pixmap.loadFromData(image_data):
-                                # 使用文件名作为key
                                 base_name = file_name.split('/')[-1]
-                                dispimg_id_map[base_name] = pixmap
-                                print(f"[ZIP] Extracted image: {base_name}, size: {pixmap.width()}x{pixmap.height()}")
+                                media_files[base_name] = pixmap
+                                print(f"[ZIP] Extracted media: {base_name}, size: {pixmap.width()}x{pixmap.height()}")
+
+                    # 步骤2: 解析xl/cellimages.xml，建立图片ID -> rId的映射
+                    image_id_to_rid = {}  # {image_id: rId}
+                    if 'xl/cellimages.xml' in zip_ref.namelist():
+                        cellimages_xml = zip_ref.read('xl/cellimages.xml').decode('utf-8')
+                        root = ET.fromstring(cellimages_xml)
+
+                        # WPS和Excel可能使用不同的命名空间
+                        namespaces = {
+                            'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing',
+                            'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+                            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+                            'etc': 'http://www.wps.cn/officeDocument/2017/etCustomData',  # WPS命名空间
+                        }
+
+                        # 尝试WPS格式
+                        for cell_image in root.findall('.//etc:cellImage', namespaces):
+                            cNvPr = cell_image.find('.//xdr:cNvPr', namespaces)
+                            if cNvPr is not None:
+                                name = cNvPr.get('name', '')
+                                match = re.search(r'ID_([A-F0-9]+)', name)
+                                if match:
+                                    image_id = match.group(1)
+                                    blip = cell_image.find('.//a:blip', namespaces)
+                                    if blip is not None:
+                                        rid = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed', '')
+                                        if rid:
+                                            image_id_to_rid[image_id] = rid
+                                            print(f"[cellimages.xml] {image_id} -> {rid}")
+
+                        # 如果WPS格式没找到，尝试Excel格式
+                        if not image_id_to_rid:
+                            namespaces['etc'] = 'http://schemas.microsoft.com/office/excel/2017/cellimages'
+                            for cell_image in root.findall('.//etc:cellImage', namespaces):
+                                cNvPr = cell_image.find('.//xdr:cNvPr', namespaces)
+                                if cNvPr is not None:
+                                    name = cNvPr.get('name', '')
+                                    match = re.search(r'ID_([A-F0-9]+)', name)
+                                    if match:
+                                        image_id = match.group(1)
+                                        blip = cell_image.find('.//a:blip', namespaces)
+                                        if blip is not None:
+                                            rid = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed', '')
+                                            if rid:
+                                                image_id_to_rid[image_id] = rid
+                                                print(f"[cellimages.xml] {image_id} -> {rid}")
+
+                    # 步骤3: 解析xl/_rels/cellimages.xml.rels，建立rId -> 图片文件名的映射
+                    rid_to_filename = {}  # {rId: filename}
+                    if 'xl/_rels/cellimages.xml.rels' in zip_ref.namelist():
+                        rels_xml = zip_ref.read('xl/_rels/cellimages.xml.rels').decode('utf-8')
+                        root = ET.fromstring(rels_xml)
+
+                        for rel in root.findall('.//{http://schemas.openxmlformats.org/package/2006/relationships}Relationship'):
+                            rid = rel.get('Id', '')
+                            target = rel.get('Target', '')
+                            if 'media' in target:
+                                filename = target.split('/')[-1]
+                                rid_to_filename[rid] = filename
+                                print(f"[cellimages.xml.rels] {rid} -> {filename}")
+
+                    # 步骤4: 合并映射，得到图片ID -> QPixmap
+                    for image_id, rid in image_id_to_rid.items():
+                        if rid in rid_to_filename:
+                            filename = rid_to_filename[rid]
+                            if filename in media_files:
+                                dispimg_id_map[image_id] = media_files[filename]
+                                print(f"[Final mapping] {image_id} -> {filename}")
+
+                    print(f"[Summary] Successfully mapped {len(dispimg_id_map)} DISPIMG images")
+
             except Exception as e:
-                print(f"[ZIP] Failed to extract images: {e}")
+                print(f"[DISPIMG] Failed to extract images: {e}")
+                import traceback
+                traceback.print_exc()
 
             # 方法2: 使用openpyxl的_images（适用于直接插入的图片）
             if hasattr(ws, '_images') and ws._images:
@@ -690,17 +770,15 @@ class RegulationDetailDialog(QDialog):
             # 填充表格
             self.param_table.setRowCount(len(all_rows))
 
-            # 如果有从ZIP提取的图片，按顺序分配给DISPIMG位置
-            zip_images_list = list(dispimg_id_map.values())
-            dispimg_positions = sorted(row_image_info.keys())  # 按位置排序
+            # 使用图片ID将DISPIMG位置映射到实际图片
+            print(f"[Mapping] {len(dispimg_id_map)} DISPIMG images, {len(row_image_info)} DISPIMG positions")
 
-            print(f"[Summary] {len(zip_images_list)} ZIP images, {len(dispimg_positions)} DISPIMG positions")
-
-            # 将ZIP图片按顺序映射到DISPIMG位置
-            for idx, pos in enumerate(dispimg_positions):
-                if idx < len(zip_images_list):
-                    image_map[pos] = zip_images_list[idx]
-                    print(f"[Mapping] Image {idx} to position {pos}")
+            for (row_idx, col_idx), image_id in row_image_info.items():
+                if image_id in dispimg_id_map:
+                    image_map[(row_idx, col_idx)] = dispimg_id_map[image_id]
+                    print(f"[Mapping] Position ({row_idx},{col_idx}) <- Image ID {image_id}")
+                else:
+                    print(f"[Warning] Image ID {image_id} not found in dispimg_id_map")
 
             # 保存原始图片数据，用于双击放大查看
             self.original_images = image_map.copy()
@@ -741,18 +819,20 @@ class RegulationDetailDialog(QDialog):
             self.apply_category_merge()
 
             image_count = len(image_map)
-            zip_image_count = len(dispimg_id_map)
-            dispimg_formula_count = len(dispimg_positions)
+            dispimg_count = len(dispimg_id_map)
+            dispimg_formula_count = len(row_image_info)
 
-            msg = f"[OK] 成功导入 {len(all_rows)} 行参数！\n\n"
+            msg = f"成功导入 {len(all_rows)} 行参数！\n\n"
             msg += f"导入统计:\n"
             msg += f"  - 类别列已自动合并显示\n"
-            msg += f"  - 从ZIP提取了 {zip_image_count} 个图片文件\n"
-            msg += f"  - 检测到 {dispimg_formula_count} 个DISPIMG公式\n"
+            msg += f"  - 解析了 {dispimg_count} 个DISPIMG图片映射\n"
+            msg += f"  - 检测到 {dispimg_formula_count} 个DISPIMG公式位置\n"
             msg += f"  - 成功显示 {image_count} 个图片\n"
 
             if dispimg_formula_count > image_count:
-                msg += f"\n[!] 有 {dispimg_formula_count - image_count} 个图片无法显示"
+                failed_count = dispimg_formula_count - image_count
+                msg += f"\n⚠ 有 {failed_count} 个位置的图片无法显示\n"
+                msg += f"   （可能是图片ID映射缺失或图片文件不存在）"
 
             QMessageBox.information(self, "导入成功", msg)
 
@@ -912,8 +992,7 @@ class RegulationDetailDialog(QDialog):
                     # 设置行高
                     if has_image:
                         self.param_table.setRowHeight(row, 140)  # 有图片时使用更大的行高
-                    else:
-                        self.param_table.setRowHeight(row, 40)  # 确保文字不被裁剪
+                    # 如果没有图片，不设置固定行高，让后面的 resizeRowsToContents() 自动调整
 
                     self.param_table.setItem(row, 0, create_table_item(param.category, row, 0))
                     self.param_table.setItem(row, 1, create_table_item(param.parameter_name, row, 1))
@@ -926,6 +1005,9 @@ class RegulationDetailDialog(QDialog):
                     self.param_table.setItem(row, 8, create_table_item(param.remark, row, 8))
 
                 self.apply_category_merge()
+
+                # 自动调整行高以适应文本内容（特别是备注列）
+                self.param_table.resizeRowsToContents()
 
         except:
             pass
@@ -960,6 +1042,121 @@ class RegulationDetailDialog(QDialog):
                 i = j
             else:
                 i += 1
+
+    def generate_c_code_from_regulation(self):
+        """生成C代码文件"""
+        try:
+            # 读取模板文件
+            template_path = Path(__file__).resolve().parent.parent.parent / "Satety_Parameter.c"
+            if not template_path.exists():
+                QMessageBox.critical(self, "错误", f"模板文件不存在: {template_path}")
+                return
+
+            with open(template_path, 'r', encoding='utf-8') as f:
+                template_lines = f.readlines()
+
+            # 收集表格数据，按协议位建立索引
+            # 列索引：0类别, 1参数, 2默认值, 3下限, 4上限, 5单位, 6系数, 7协议位, 8备注
+            protocol_data = {}
+            for row in range(self.param_table.rowCount()):
+                protocol_item = self.param_table.item(row, 7)  # 协议位
+                default_item = self.param_table.item(row, 2)   # 默认值
+                coef_item = self.param_table.item(row, 6)      # 系数
+
+                protocol = protocol_item.text().strip() if protocol_item else ""
+                default_val = default_item.text().strip() if default_item else ""
+                coef = coef_item.text().strip() if coef_item else ""
+
+                # 如果协议位是"-"或为空，跳过
+                if protocol == "-" or not protocol:
+                    continue
+
+                # 如果默认值是"-"或为空，设置为0
+                if default_val == "-" or not default_val:
+                    calculated_value = 0
+                else:
+                    try:
+                        # 计算：默认值 / 系数
+                        if coef and coef != "-" and float(coef) != 0:
+                            calculated_value = float(default_val) / float(coef)
+                        else:
+                            calculated_value = float(default_val)
+
+                        # 四舍五入取整
+                        calculated_value = int(round(calculated_value))
+                    except (ValueError, ZeroDivisionError):
+                        calculated_value = 0
+
+                protocol_data[protocol] = calculated_value
+
+            # 生成新的C代码
+            new_lines = []
+            for i, line in enumerate(template_lines):
+                # 跳过前4行（注释和列标题）
+                if i < 4:
+                    new_lines.append(line)
+                    continue
+
+                # 最后一行
+                if line.strip() == "};":
+                    new_lines.append(line)
+                    continue
+
+                # 解析数据行
+                if "//" in line and "{" in line:
+                    # 提取注释部分的协议位
+                    comment_part = line.split("//")[1].strip()
+                    protocol_match = comment_part.split()[0] if comment_part else ""
+
+                    # 查找协议位对应的值
+                    if protocol_match in protocol_data:
+                        value = protocol_data[protocol_match]
+                    else:
+                        value = 0
+
+                    # 处理负数
+                    if value < 0:
+                        default_str = f"(Uint16){value}"
+                    else:
+                        default_str = str(value)
+
+                    # 重新构建这一行，保留原来的MIN、MAX和注释
+                    # 提取原来的MIN和MAX
+                    data_part = line.split("{")[1].split("}")[0]
+                    parts = [p.strip() for p in data_part.split(",")]
+
+                    if len(parts) >= 3:
+                        min_val = parts[1]
+                        max_val = parts[2]
+                    else:
+                        min_val = "32768"
+                        max_val = "32767"
+
+                    # 提取完整注释
+                    full_comment = line.split("//")[1] if "//" in line else ""
+
+                    # 格式化新行
+                    new_line = f"    {{   {default_str:<7} ,   {min_val:<6} ,   {max_val:<6} }},   // {full_comment}"
+                    new_lines.append(new_line)
+                else:
+                    new_lines.append(line)
+
+            # 选择保存路径
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "保存C代码文件",
+                f"{self.regulation.name}_Parameter.c",
+                "C文件 (*.c)"
+            )
+
+            if file_path:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.writelines(new_lines)
+
+                QMessageBox.information(self, "成功", f"C代码文件已生成：\n{file_path}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"生成失败:\n{str(e)}")
 
     def closeEvent(self, event):
         """关闭事件"""

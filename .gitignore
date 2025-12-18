@@ -68,6 +68,19 @@ bash.exe.stackdump
 test_*.py
 temp_*.py
 compare_db.py
+compare_db.bat
 sync_db_to_dist.bat
+sync_database_to_dist.bat
 rebuild_quick.bat
 test_direct_run.bat
+
+# 备份目录
+backup/
+cleanup_backup_*/
+
+# 截图和临时文件
+screenshot-*.png
+*.stackdump
+
+# 根目录的参数文件（应该在RDB目录）
+/*.c

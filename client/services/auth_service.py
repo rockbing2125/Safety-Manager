@@ -79,12 +79,23 @@ class AuthService:
             logger.error(f"注册失败: {e}")
             return False, f"注册失败: {str(e)}", None
 
-    def change_password(self, user_id: int, old_password: str, 
+    def change_password(self, username_or_id, old_password: str,
                        new_password: str) -> tuple[bool, str]:
-        """修改密码"""
+        """修改密码
+
+        Args:
+            username_or_id: 用户名或用户ID
+            old_password: 旧密码
+            new_password: 新密码
+        """
         try:
             db = SessionLocal()
-            user = db.query(User).filter(User.id == user_id).first()
+
+            # 根据参数类型查询用户
+            if isinstance(username_or_id, int):
+                user = db.query(User).filter(User.id == username_or_id).first()
+            else:
+                user = db.query(User).filter(User.username == username_or_id).first()
 
             if not user:
                 return False, "用户不存在"
