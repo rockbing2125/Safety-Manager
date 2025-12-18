@@ -1,9 +1,9 @@
 {
-  "version": "1.1.7",
-  "release_date": "2025-12-03",
-  "download_url": "https://github.com/rockbing2125/Safety-Manager/releases/download/v1.1.7/SafetyManager_v1.1.7.rar",
+  "version": "1.1.8",
+  "release_date": "2025-12-18",
+  "download_url": "https://github.com/rockbing2125/Safety-Manager/releases/download/v1.1.8/SafetyManager.rar",
   "changelog": [
-    "新增德国"
+    "新增荷兰、德国、英国、北爱尔兰法规"
   ],
   "required": false,
   "min_version": "1.0.0"
